@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: readiness_module
+      POSTGRES_USER: cdcju
+      POSTGRES_PASSWORD: cdcju123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    command: /app/entrypoint.sh
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8080"
+    environment:
+      DJANGO_SECRET_KEY: 'django-insecure-eee-portal-change-this-in-production'
+      DJANGO_DEBUG: 'True'
+      DJANGO_DB_NAME: readiness_module
+      DJANGO_DB_USER: cdcju
+      DJANGO_DB_PASSWORD: cdcju123
+      DJANGO_DB_HOST: db
+      DJANGO_DB_PORT: '5432'
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

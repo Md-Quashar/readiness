@@ -1,0 +1,620 @@
+openapi: 3.0.3
+info:
+  title: EEE Portal Backend API
+  description: |
+    API documentation for the EEE Portal Backend with complete security specifications.
+    
+    ## Authentication
+    - **Bearer Token**: JWT token required for authenticated endpoints
+    - **User Roles**: admin, user
+    
+    ## Security Levels
+    - 🔓 Public: No authentication required
+    - 🔐 User: Any logged-in user
+    - 🔑 Admin: Admin role required
+  version: 1.0.0
+  contact:
+    name: EEE Portal Support
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.eeportal.com
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token for authentication
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: john_doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        role:
+          type: string
+          enum: [admin, user]
+          example: user
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        question:
+          type: string
+          example: "What is the capital of France?"
+        question_type:
+          type: string
+          example: "mcq"
+        options:
+          type: array
+          items:
+            type: string
+          example: ["Paris", "London", "Berlin", "Madrid"]
+        correct_option:
+          type: integer
+          example: 0
+        is_active:
+          type: boolean
+          example: true
+        question_section:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Response:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user:
+          type: integer
+          example: 1
+        question:
+          type: integer
+          example: 1
+        options:
+          type: integer
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid request"
+        detail:
+          type: string
+          example: "Required field missing"
+
+paths:
+  /auth/register/:
+    post:
+      summary: Register new user
+      description: 🔓 Public endpoint - Register new user and obtain JWT tokens
+      tags:
+        - Auth Service
+      operationId: register_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  example: john_doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securepassword123
+      responses:
+        '201':
+          description: User registered successfully - JWT tokens returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refresh_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          description: Invalid input or user already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login/:
+    post:
+      summary: User login
+      description: 🔓 Public endpoint - User login with email and password to obtain JWT tokens
+      tags:
+        - Auth Service
+      operationId: login_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securepassword123
+      responses:
+        '200':
+          description: Login successful - JWT tokens returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refresh_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/profile/:
+    get:
+      summary: Get own profile
+      description: 🔐 User authentication required - Get current logged-in user profile
+      tags:
+        - Auth Service
+      operationId: get_profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - Token missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/get-user/:
+    get:
+      summary: List all users
+      description: 🔑 Admin only - List all users in the system
+      tags:
+        - Auth Service
+      operationId: list_users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of all users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+
+  /questions/active/:
+    get:
+      summary: Get active questions
+      description: 🔑 Admin only - Retrieve all active questions for assessment
+      tags:
+        - Questions Service
+      operationId: get_active_questions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active questions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Question'
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+
+  /questions/{id}/toggle-active/:
+    patch:
+      summary: Toggle question active status
+      description: 🔑 Admin only - Soft enable/disable question without deletion
+      tags:
+        - Questions Service
+      operationId: toggle_question_active
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Question ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_active:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Question status toggled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  is_active:
+                    type: boolean
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Question not found
+
+  /questions/create/:
+    post:
+      summary: Create question
+      description: 🔑 Admin only - Create new question(s)
+      tags:
+        - Questions Service
+      operationId: create_question
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Question'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Question'
+      responses:
+        '201':
+          description: Question(s) created successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Question'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+
+  /questions/update/:
+    put:
+      summary: Update question
+      description: 🔑 Admin only - Update existing question(s)
+      tags:
+        - Questions Service
+      operationId: update_question
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - allOf:
+                    - $ref: '#/components/schemas/Question'
+                    - type: object
+                      required:
+                        - id
+                - type: array
+                  items:
+                    allOf:
+                      - $ref: '#/components/schemas/Question'
+                      - type: object
+                        required:
+                          - id
+      responses:
+        '200':
+          description: Question(s) updated successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Question'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+        '400':
+          description: Invalid input or missing ID
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Question not found
+
+  /responses/single-response/:
+    post:
+      summary: Store single response
+      description: 🔐 User authentication required - Store single response record for a question
+      tags:
+        - Responses Service
+      operationId: submit_single_response
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - question
+                - options
+              properties:
+                question:
+                  type: integer
+                  example: 1
+                options:
+                  type: integer
+                  example: 0
+      responses:
+        '201':
+          description: Response stored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized - Token missing or invalid
+
+  /responses/bulk-response/:
+    post:
+      summary: Store bulk responses
+      description: 🔐 User authentication required - Store bulk response records of same user
+      tags:
+        - Responses Service
+      operationId: submit_bulk_response
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required:
+                  - question
+                  - options
+                properties:
+                  question:
+                    type: integer
+                  options:
+                    type: integer
+              example:
+                - question: 1
+                  options: 0
+                - question: 2
+                  options: 1
+                - question: 3
+                  options: 2
+      responses:
+        '201':
+          description: Responses stored successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid input or expected list
+        '401':
+          description: Unauthorized - Token missing or invalid
+
+  /responses/{id}/delete-response/:
+    delete:
+      summary: Delete user responses
+      description: 🔑 Admin only - Delete all response records of user having specified ID
+      tags:
+        - Responses Service
+      operationId: delete_user_response
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: User ID
+      responses:
+        '200':
+          description: Responses deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deleted 5 records"
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: User responses not found
+
+  /responses/{id}/get-response/:
+    get:
+      summary: Get user responses
+      description: 🔑 Admin only - Get all response records of a user with specified ID
+      tags:
+        - Responses Service
+      operationId: get_user_response
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: User ID
+      responses:
+        '200':
+          description: User responses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Response'
+        '401':
+          description: Unauthorized - Token missing or invalid
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: No responses found for this user
+
+tags:
+  - name: Auth Service
+    description: Authentication and user management endpoints (/auth/)
+  - name: Questions Service
+    description: Question management endpoints (/questions/)
+  - name: Responses Service
+    description: User response submission and retrieval endpoints (/responses/)
+
+x-security-summary:
+  authentication:
+    - type: JWT Bearer Token
+      location: Authorization header
+      format: "Authorization: Bearer {token}"
+      expiration: Check token expiration on client side
+  
+  permission_levels:
+    - level: 1 - Public
+      symbol: 🔓
+      description: No authentication required
+      endpoints:
+        - POST /auth/register/
+        - POST /auth/login/
+    
+    - level: 2 - User (Authenticated)
+      symbol: 🔐
+      description: Any logged-in user with valid JWT token
+      endpoints:
+        - GET /auth/profile/
+        - POST /responses/single-response/
+        - POST /responses/bulk-response/
+    
+    - level: 3 - Admin Only
+      symbol: 🔑
+      description: User with admin role required
+      endpoints:
+        - GET /auth/get-user/
+        - GET /questions/active/
+        - PATCH /questions/{id}/toggle-active/
+        - POST /questions/create/
+        - PUT /questions/update/
+        - DELETE /responses/{id}/delete-response/
+        - GET /responses/{id}/get-response/
+
+  security_requirements:
+    - All authenticated endpoints require valid JWT token in Authorization header
+    - Token format must be: "Authorization: Bearer {token}"
+    - Admin endpoints validate user role must equal 'admin'
+    - User endpoints validate user is authenticated
+    - Passwords should be minimum 8 characters and hashed using bcrypt
+    - HTTPS should be enforced in production environments
+    - CORS should be configured to allow only trusted origins
+    - Rate limiting recommended for /auth/login/ and /auth/register/ endpoints
+    - SQL injection and XSS protections must be enabled
+    - Input validation should be performed on all endpoints
+    - Response data should be validated before serialization
