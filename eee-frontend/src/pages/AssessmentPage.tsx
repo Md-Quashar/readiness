@@ -436,10 +436,10 @@ export default function AssessmentPage() {
     return (
       <div>
         <Navbar />
-        <div style={{ maxWidth: 680, margin: '60px auto', padding: '0 16px' }} className="fade-up">
+        <div className="fade-up submitted-wrapper" style={{ maxWidth: 680, margin: '60px auto', padding: '0 16px' }}>
           <div className="submitted-card card" style={{ textAlign: 'center', padding: '48px 40px' }}>
             {/* Success icon */}
-            <div style={{
+            <div className="success-icon" style={{
               width: 72, height: 72, borderRadius: '50%', background: 'var(--green-lt)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px',
             }}>
@@ -449,12 +449,12 @@ export default function AssessmentPage() {
             </div>
 
             <h2 style={{ fontSize: 26, marginBottom: 8 }}>Assessment Submitted</h2>
-            <p style={{ color: 'var(--gray5)', marginBottom: 36, fontSize: 15 }}>
+            <p className="submitted-desc" style={{ color: 'var(--gray5)', marginBottom: 36, fontSize: 15 }}>
               Your responses have been recorded. Download your compliance report below. 100% compliance is required for Application.
             </p>
 
             {/* Score ring */}
-            <div style={{
+            <div className="score-ring" style={{
               width: 130, height: 130, borderRadius: '50%',
               border: `10px solid ${scoreColor}`,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -507,7 +507,7 @@ export default function AssessmentPage() {
         <div className="progress-fill" style={{ width: `${overallPct}%`, background: overallPct === 100 ? 'var(--green)' : 'var(--blue)' }} />
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px 60px' }}>
+      <div className="page-container" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px 60px' }}>
 
         <h1 style={{ fontSize: 'clamp(1.3rem, 2.5vw, 1.8rem)', fontWeight: 400, marginBottom: 6, letterSpacing: '-0.02em' }}>
           Forensic Lab Readiness Assessment
@@ -573,7 +573,7 @@ export default function AssessmentPage() {
 
         {/* All done banner */}
         {allDone && (
-          <div style={{
+          <div className="allDone-banner" style={{
             background: 'var(--green-lt)', border: '1.5px solid rgba(5,150,105,.3)',
             borderRadius: 12, padding: '16px 22px', marginBottom: 22,
             display: 'flex', alignItems: 'center', gap: 14,
@@ -610,7 +610,8 @@ export default function AssessmentPage() {
 
                 return (
                   <button key={sec}
-
+                    onClick={() => setActiveIdx(i)}
+                    className="sidebar-section-btn"
                     style={{
                       width: '100%', textAlign: 'left', padding: '10px 14px',
                       background: isActive ? 'var(--btn-primary-bg)' : isDone ? '#2bfb7d' : 'transparent',
@@ -678,7 +679,7 @@ export default function AssessmentPage() {
                   const isYes = ans === 'yes';
 
                   return (
-                    <div key={q.id} style={{
+                    <div key={q.id} className="question-card" style={{
                       background: answered ? 'var(--white)' : 'var(--white)',
                       border: `1px solid ${answered ? (isYes ? 'rgba(5,150,105,.3)' : 'rgba(220,38,38,.25)') : 'var(--gray2)'}`,
                       borderLeft: `3.5px solid ${answered ? (isYes ? 'var(--green)' : 'var(--red)') : 'var(--gray2)'}`,
@@ -687,7 +688,7 @@ export default function AssessmentPage() {
                       boxShadow: answered ? `0 0 0 3px ${isYes ? 'rgba(5,150,105,.06)' : 'rgba(220,38,38,.05)'}` : 'none',
                     }}>
                       {/* Question header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                      <div className="question-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                         <p style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.55, flex: 1 }}>
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -765,7 +766,7 @@ export default function AssessmentPage() {
               )}
 
               {/* Section footer */}
-              <div style={{
+              <div className="section-footer" style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--gray2)', flexWrap: 'wrap', gap: 10,
               }}>
@@ -797,7 +798,7 @@ export default function AssessmentPage() {
                         fontFamily: 'var(--font)', transition: 'background .2s',
                         display: 'flex', alignItems: 'center', gap: 6,
                       }}>
-                      Next →
+                      Save & Next →
                     </button>
                   ) : (
                     <button className="btn btn-success btn-lg" onClick={handleSubmit}

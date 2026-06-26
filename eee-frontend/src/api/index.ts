@@ -34,7 +34,7 @@ export const authAPI = {
 export const questionsAPI = {
   getActive: () => api.get<Question[]>('/questions/active/'),
 
-  getAll: () => api.get<Question[]>('/questions/'),
+  getAll: () => api.get<Question[]>('/questions/all/'),
 
   create: (data: Partial<Question> | Partial<Question>[]) =>
     api.post('/questions/create/', data),
@@ -57,6 +57,8 @@ export const responsesAPI = {
 
   getUserResponses: (userId: number) =>
     api.get<UserResponse[]>(`/responses/${userId}/get-response`),
+
+  getTotalResponses: () => api.get('/responses/total-response-count/'),
 
   deleteUserResponses: (userId: number) =>
     api.delete(`/responses/${userId}/delete-response/`),

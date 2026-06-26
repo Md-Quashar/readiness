@@ -5,27 +5,28 @@ import { authAPI, questionsAPI, responsesAPI } from '../api';
 import Navbar from '../components/Navbar';
 import type { User } from '../types';
 
-const PIE_COLORS = ['#0f2557','#2563EB','#059669','#D97706','#DC2626','#7C3AED','#0891B2'];
+const PIE_COLORS = ['#0f2557', '#2563EB', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0891B2'];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [loading, setLoading]     = useState(true);
-  const [users,   setUsers]       = useState<User[]>([]);
-  const [qCount,  setQCount]      = useState(0);
-  const [pieData, setPieData]     = useState<{ name: string; value: number }[]>([]);
-  const [timeline, setTimeline]   = useState<{ date: string; count: number }[]>([]);
-
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
+  const [qCount, setQCount] = useState(0);
+  const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
+  const [timeline, setTimeline] = useState<{ date: string; count: number }[]>([]);
+  const [totalResponses, setTotalResponses] = useState(0);
   useEffect(() => {
     const toArray = (d: any): any[] => Array.isArray(d) ? d : (d?.results ?? []);
 
-    Promise.all([authAPI.getAllUsers(), questionsAPI.getActive(), responsesAPI.getAllResponses()])
-      .then(([uRes, qRes, rRes]) => {
+    Promise.all([authAPI.getAllUsers(), questionsAPI.getActive(), responsesAPI.getAllResponses(), responsesAPI.getTotalResponses()])
+      .then(([uRes, qRes, rRes, TRRes]) => {
         const applicants: User[] = toArray(uRes.data).filter((u: User) => u.role === 'applicant');
-        console.log('Applicants:', applicants);
+        // console.log('Applicants:', applicants);
         setUsers(applicants);
         setQCount(toArray(qRes.data).length);
-        console.log('Active Questions:', toArray(qRes.data));
-
+        //console.log('Active Questions:', toArray(qRes.data));
+        setTotalResponses(TRRes.data.length);
+        //  console.log('total responses count:', TRRes.data);
         const responses = toArray(rRes.data);
 
         // Pie: lab type distribution
@@ -68,7 +69,7 @@ export default function AdminDashboard() {
         transition: 'box-shadow .15s',
       }}
       onMouseOver={e => onClick && ((e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-md)')}
-      onMouseOut={e  => onClick && ((e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow)')}
+      onMouseOut={e => onClick && ((e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow)')}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{
@@ -103,7 +104,7 @@ export default function AdminDashboard() {
             color="var(--navy)" iconBg="var(--blue-lt)" onClick={() => navigate('/admin/assessments')} />
           <StatCard icon="📋" label="Total Questions" value={qCount}
             color="var(--blue)" iconBg="var(--blue-lt)" onClick={() => navigate('/admin/questions')} />
-          <StatCard icon="📊" label="Total Responses" value={pieData.length}
+          <StatCard icon="📊" label="Total Responses" value={totalResponses}
             color="var(--green)" iconBg="var(--green-lt)" />
         </div>
 
@@ -128,7 +129,7 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          <div className="card">  
+          <div className="card">
             <h3 style={{ fontSize: 15, marginBottom: 20, fontWeight: 600 }}>Submissions — Last 7 Days</h3>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={timeline}>
@@ -136,7 +137,7 @@ export default function AdminDashboard() {
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--gray5)' }} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--gray5)' }} allowDecimals={false} />
                 <Tooltip cursor={{ fill: 'rgba(37,99,235,.05)' }} />
-                <Bar dataKey="count" name="Responses" fill="var(--navy)" radius={[4,4,0,0]} />
+                <Bar dataKey="count" name="Responses" fill="var(--navy)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -153,7 +154,7 @@ export default function AdminDashboard() {
               transition: 'box-shadow .15s', borderLeft: `4px solid ${item.color}`,
             }}
               onMouseOver={e => ((e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-md)')}
-              onMouseOut={e  => ((e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow)')}
+              onMouseOut={e => ((e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow)')}
             >
               <div style={{ width: 48, height: 48, borderRadius: 12, background: item.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
                 {item.icon}

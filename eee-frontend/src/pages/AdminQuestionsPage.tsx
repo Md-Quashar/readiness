@@ -90,7 +90,7 @@ export default function AdminQuestionsPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      questionsAPI.getActive(),
+      questionsAPI.getAll(),
       sectionsAPI.getAll(),
       scopesAPI.getAll()
     ]).then(([qRes, sRes, scRes]) => {
