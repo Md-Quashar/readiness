@@ -18,7 +18,7 @@ class ResponseSerializer(serializers.ModelSerializer):
         data = data.copy()
         # Split on comma, strip whitespace; empty string becomes []
         data['scope'] = [s.strip() for s in scope_val.split(',')] if scope_val else []
-        return super().to_internal_value(data)
+      return super().to_internal_value(data)
     class Meta:
         model = Response
         fields = [

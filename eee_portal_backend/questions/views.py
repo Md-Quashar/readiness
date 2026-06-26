@@ -156,6 +156,19 @@ class QuestionViewSet(viewsets.ModelViewSet):
         if q_type:
             qs = qs.filter(question_type=q_type)
         return qs
+    @action(detail=False, methods=['get'], url_path='all',
+            permission_classes=[IsAdmin])
+    @method_decorator(ratelimit(key='ip', rate='50/m', block=True))
+    def all_questions(self, request):
+        """Shortcut: returns all questions (used by admin)."""
+        if request.user.role != 'admin':
+            return Response(
+                {'error': 'You do not have permission to perform this action.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        qs = Question.objects.all().order_by('id')
+        serializer = QuestionSerializer(qs, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='active',
             permission_classes=[IsAuthenticated])
