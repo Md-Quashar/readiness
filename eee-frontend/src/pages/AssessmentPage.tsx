@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { questionsAPI, responsesAPI, scopesAPI, sectionsAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { generatePDFReport } from '../utils/pdfReport';
@@ -290,6 +290,18 @@ function clearPersistedState(userId: number | undefined) {
   } catch { /* ignore */ }
 }
 
+// ── Helper: render markdown-style **bold** text as <strong> ────────────────
+function renderBoldText(text: string): React.ReactNode {
+  // Split on **...** patterns, capturing the bold content
+  const parts = text.split(/(\*\*[^*]+\*\*)/);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function AssessmentPage() {
   const { user } = useAuth();
@@ -297,7 +309,7 @@ export default function AssessmentPage() {
 
   // Load any previously saved state for this user (on initial mount)
   const saved = useRef(loadPersistedState(user?.id));
-  const hasRestored = useRef(!!user?.id);
+  const hasRestored = useRef(false);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, 'yes' | 'no'>>(saved.current.answers ?? {});
@@ -310,18 +322,60 @@ export default function AssessmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [hasPreviousSubmission, setHasPreviousSubmission] = useState(false);
 
   // When user becomes available (e.g. after login), restore their saved state
+  // First try localStorage (in-progress work), then fall back to server (previous submission)
   useEffect(() => {
     if (user?.id && !hasRestored.current) {
-      const restored = loadPersistedState(user.id);
-      if (restored.answers && Object.keys(restored.answers).length > 0) {
-        setAnswers(restored.answers);
-      }
-      if (restored.labType) setLabType(restored.labType);
-      if (restored.scope && restored.scope.length > 0) setScope(restored.scope);
-      if (restored.activeIdx !== undefined) setActiveIdx(restored.activeIdx);
       hasRestored.current = true;
+      const restored = loadPersistedState(user.id);
+      const hasLocalAnswers = restored.answers && Object.keys(restored.answers).length > 0;
+
+      if (hasLocalAnswers) {
+        // Restore from localStorage (in-progress, unsaved work)
+        setAnswers(restored.answers!);
+        if (restored.labType) setLabType(restored.labType);
+        if (restored.scope && restored.scope.length > 0) setScope(restored.scope);
+        if (restored.activeIdx !== undefined) setActiveIdx(restored.activeIdx);
+      } else {
+        // No local progress — try fetching previously submitted responses from the server
+        responsesAPI.getMyResponses()
+          .then(res => {
+            const data: any = res.data;
+            const serverResponses = Array.isArray(data) ? data : [];
+            if (serverResponses.length > 0) {
+              // Auto-fill answers from server
+              const restoredAnswers: Record<number, 'yes' | 'no'> = {};
+              serverResponses.forEach((r: any) => {
+                restoredAnswers[r.question] = r.answer;
+              });
+              setAnswers(restoredAnswers);
+
+              // Restore lab_type and scope from the first response (they are the same across all)
+              const firstResponse = serverResponses[0];
+              if (firstResponse.lab_type) setLabType(firstResponse.lab_type);
+              if (firstResponse.scope) {
+                // Handle scope as either an array or a comma-separated string
+                let scopeList: string[];
+                if (Array.isArray(firstResponse.scope)) {
+                  scopeList = firstResponse.scope.filter((s: string) => s.length > 0);
+                } else {
+                  scopeList = firstResponse.scope
+                    .split(',')
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s.length > 0);
+                }
+                if (scopeList.length > 0) setScope(scopeList);
+              }
+
+              setHasPreviousSubmission(true);
+            }
+          })
+          .catch(() => {
+            // Silently ignore — user may not have submitted before
+          });
+      }
     }
   }, [user?.id]);
 
@@ -389,6 +443,7 @@ export default function AssessmentPage() {
       }));
       await responsesAPI.submitBulk(payload);
       clearPersistedState(user?.id);
+      setHasPreviousSubmission(false);
       setSubmitted(true);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Submission failed. Please try again.');
@@ -571,6 +626,40 @@ export default function AssessmentPage() {
           </div>
         </div>
 
+        {/* Previous submission restored banner */}
+        {hasPreviousSubmission && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(99,102,241,.08))',
+            border: '1.5px solid rgba(59,130,246,.3)',
+            borderRadius: 12, padding: '16px 22px', marginBottom: 22,
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(59,130,246,.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 700, color: 'var(--blue)', marginBottom: 2 }}>Previous submission restored</p>
+              <p style={{ fontSize: 13, color: 'var(--gray5)' }}>
+                Your earlier responses have been auto-filled. You can review, edit your answers, and resubmit.
+              </p>
+            </div>
+            <button
+              onClick={() => setHasPreviousSubmission(false)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                color: 'var(--gray4)', fontSize: 18, lineHeight: 1, flexShrink: 0,
+              }}
+              title="Dismiss"
+            >✕</button>
+          </div>
+        )}
+
         {/* All done banner */}
         {allDone && (
           <div className="allDone-banner" style={{
@@ -610,7 +699,7 @@ export default function AssessmentPage() {
 
                 return (
                   <button key={sec}
-                    onClick={() => setActiveIdx(i)}
+                    // onClick={() => setActiveIdx(i)}
                     className="sidebar-section-btn"
                     style={{
                       width: '100%', textAlign: 'left', padding: '10px 14px',
@@ -696,7 +785,7 @@ export default function AssessmentPage() {
                             background: 'var(--gray1)', color: 'var(--gray5)',
                             fontSize: 14, fontWeight: 700, marginRight: 8, verticalAlign: 'middle',
                           }}>{i + 1}</span>
-                          {q.question}
+                          {renderBoldText(q.question)}
                           <span style={{ color: 'var(--red)', marginLeft: 3 }}>*</span>
                         </p>
                         {answered && (
@@ -712,7 +801,7 @@ export default function AssessmentPage() {
                       {/* Explanation */}
                       {q.explanation && (
                         <p style={{ fontSize: 14, color: 'var(--gray5)', marginBottom: 14, lineHeight: 1.65, paddingLeft: 30, fontStyle: 'italic' }}>
-                          {q.explanation}
+                          {renderBoldText(q.explanation)}
                         </p>
                       )}
 

@@ -17,7 +17,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      console.log('Submitting login for', form);
+      //  console.log('Submitting login for', form);
       const res = await authAPI.login(form);
       const { user, tokens } = res.data;
       login(user, tokens.access, tokens.refresh);

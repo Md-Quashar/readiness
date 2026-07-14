@@ -17,7 +17,7 @@ class UserManager(BaseUserManager):
             name=name,
             password=password,
             role='admin',
-            lab_type='admin'  # <-- Explicitly pass lab_type for superusers
+            
         )
         user.is_staff = True
         user.is_superuser = True

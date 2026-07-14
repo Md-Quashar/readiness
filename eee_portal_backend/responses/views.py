@@ -22,7 +22,7 @@ class ResponseViewSet(viewsets.ModelViewSet):
         # Admin-only actions
         if self.action in ['list', 'destroy', 'get_user_response', 'delete_user_response']:
             return [IsAdminUserRole()]
-        # Authenticated user actions
+        # Authenticated user actions (includes my_responses, single_response, bulk_response, etc.)
         return [IsAuthenticatedUser()]
 
     # GET /responses/  — admin gets all responses
@@ -108,6 +108,17 @@ class ResponseViewSet(viewsets.ModelViewSet):
             result_serializer = self.get_serializer(saved_objects, many=True)
             return DRFResponse(result_serializer.data, status=status.HTTP_200_OK)
         return DRFResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # GET /responses/my-responses/  — authenticated user gets their own responses
+    @action(detail=False, methods=['get'], url_path='my-responses')
+    @method_decorator(ratelimit(key='ip', rate='50/m', block=True))
+    def my_responses(self, request):
+        """Return all responses for the currently authenticated user."""
+        responses = self.queryset.filter(user=request.user)
+        if not responses.exists():
+            return DRFResponse([], status=status.HTTP_200_OK)
+        serializer = self.get_serializer(responses, many=True)
+        return DRFResponse(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='total-response-count')
     @method_decorator(ratelimit(key='ip', rate='50/m', block=True))

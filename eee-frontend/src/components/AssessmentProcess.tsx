@@ -17,10 +17,10 @@ function StepArrow() {
   );
 }
 
-export function AssessmentProcess() {
+export function ReadinessEvaluationProcess() {
   const { dark, t } = useTheme();
   const { ref: headerRef, inView: headerIn } = useInView();
-  const { ref: stepsRef,  inView: stepsIn  } = useInView();
+  const { ref: stepsRef, inView: stepsIn } = useInView();
 
   return (
     <section
@@ -39,7 +39,7 @@ export function AssessmentProcess() {
             className="eee-display-font"
             style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)", fontWeight: 400, color: t.text, marginBottom: 12, letterSpacing: "-0.02em" }}
           >
-            Assessment Process
+            Readiness Evaluation Process
           </h2>
           <p style={{ color: t.textSub, fontSize: 15, maxWidth: 420, margin: "0 auto", lineHeight: 1.7 }}>
             Four simple steps to complete your laboratory readiness evaluation.

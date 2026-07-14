@@ -1,4 +1,4 @@
-import { AssessmentProcess } from "../components/AssessmentProcess";
+import { ReadinessEvaluationProcess } from "../components/AssessmentProcess";
 import { CTASection } from "../components/CTASection";
 import { DisclaimerSection } from "../components/DisclaimerSection";
 import { FeaturesSection } from "../components/FeaturesSection";
@@ -35,7 +35,7 @@ export function HomePage({ onStartClick }: HomePageProps) {
         <RequirementsSection />
         <SectionDivider />
         <FeaturesSection />
-        <AssessmentProcess />
+        <ReadinessEvaluationProcess />
         <CTASection onStartClick={onStartClick} />
         <DisclaimerSection />
       </main>

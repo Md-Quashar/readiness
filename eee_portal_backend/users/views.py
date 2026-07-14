@@ -124,11 +124,11 @@ class ProfileView(APIView):
 
 class GetUserView(APIView):
     permission_classes = [IsAuthenticated]
-    all_users = User.objects.all()
     
     @method_decorator(ratelimit(key='ip', rate='50/m', block=True))  # Limit to 50 user lookups per minute per IP
     def get(self, request):
-        serializer = UserPublicSerializer(self.all_users, many=True)
+        users = User.objects.all()
+        serializer = UserPublicSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

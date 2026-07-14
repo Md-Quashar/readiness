@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminQuestionsPage from './pages/AdminQuestionsPage';
 import AdminAssessmentsPage from './pages/AdminAssessmentsPage';
 import { HomePage } from './pages/Home';
+import NotFoundPage from './pages/NotFoundPage';
 import { ThemeProvider } from './context/ThemeContext';
 import { globalStyles } from "./lib/styles";
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -41,7 +42,7 @@ function AppRoutes() {
       <Route path="/admin/dashboard" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
       <Route path="/admin/questions" element={<RequireAdmin><AdminQuestionsPage /></RequireAdmin>} />
       <Route path="/admin/assessments" element={<RequireAdmin><AdminAssessmentsPage /></RequireAdmin>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

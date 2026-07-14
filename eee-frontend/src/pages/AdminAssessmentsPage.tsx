@@ -74,9 +74,11 @@ export default function AdminAssessmentsPage() {
 
   const handlePDF = async (u: ApplicantRow, printerFriendly = false) => {
     const resp = u.responses || [];
+    const rawScope = resp[0]?.scope;
+    const scopeStr = Array.isArray(rawScope) ? rawScope.join(', ') : (rawScope || '');
     await generatePDFReport({
       applicantName: u.name, applicantEmail: u.email,
-      labType: resp[0]?.lab_type || '', scope: resp[0]?.scope || '',
+      labType: resp[0]?.lab_type || '', scope: scopeStr,
       questions, responses: resp, printerFriendly,
     });
   };
@@ -175,7 +177,11 @@ export default function AdminAssessmentsPage() {
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <ScorePill score={selected.score} />
                       {detail[0]?.lab_type && <span className="badge badge-navy">{detail[0].lab_type}</span>}
-                      {detail[0]?.scope && <span className="badge badge-blue">{detail[0].scope}</span>}
+                      {detail[0]?.scope && (
+                        <span className="badge badge-blue">
+                          {Array.isArray(detail[0].scope) ? detail[0].scope.join(', ') : detail[0].scope}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>

@@ -3,7 +3,7 @@ import type { AuthResponse, Question, Response as UserResponse, AssessmentAnswer
 
 // Dynamically resolve the backend host so other devices on the same
 // network can reach the API via the host machine's IP address.
-const BASE_URL = `http://${window.location.hostname}:8080`;
+const BASE_URL = `${window.location.protocol}//${window.location.hostname}`;
 
 const api = axios.create({ baseURL: BASE_URL });
 
@@ -57,6 +57,9 @@ export const responsesAPI = {
 
   getUserResponses: (userId: number) =>
     api.get<UserResponse[]>(`/responses/${userId}/get-response`),
+
+  getMyResponses: () =>
+    api.get<UserResponse[]>('/responses/my-responses/'),
 
   getTotalResponses: () => api.get('/responses/total-response-count/'),
 

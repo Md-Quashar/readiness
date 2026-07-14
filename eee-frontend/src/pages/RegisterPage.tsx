@@ -46,7 +46,7 @@ export default function RegisterPage() {
       setError('Please enter a valid email address (e.g. you@lab.gov.in).');
       return;
     }
-    
+
     if (!isPasswordValid) {
       setError('Password does not meet all requirements');
       return;
@@ -54,7 +54,7 @@ export default function RegisterPage() {
 
     setError(''); setLoading(true);
     try {
-      console.log('Submitting registration with data:', form);
+      //  console.log('Submitting registration with data:', form);
       const res = await authAPI.register({ ...form, role: 'applicant' });
       const { user, tokens } = res.data;
       login(user, tokens.access, tokens.refresh);
