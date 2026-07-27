@@ -7,6 +7,7 @@ import AssessmentPage from './pages/AssessmentPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminQuestionsPage from './pages/AdminQuestionsPage';
 import AdminAssessmentsPage from './pages/AdminAssessmentsPage';
+import AdminMonitoringPage from './pages/AdminMonitoringPage';
 import { HomePage } from './pages/Home';
 import NotFoundPage from './pages/NotFoundPage';
 import { ThemeProvider } from './context/ThemeContext';
@@ -42,6 +43,7 @@ function AppRoutes() {
       <Route path="/admin/dashboard" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
       <Route path="/admin/questions" element={<RequireAdmin><AdminQuestionsPage /></RequireAdmin>} />
       <Route path="/admin/assessments" element={<RequireAdmin><AdminAssessmentsPage /></RequireAdmin>} />
+      <Route path="/admin/monitoring" element={<RequireAdmin><AdminMonitoringPage /></RequireAdmin>} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

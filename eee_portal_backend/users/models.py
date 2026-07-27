@@ -55,3 +55,81 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_admin(self):
         return self.role == 'admin'
+
+
+class ActivityLog(models.Model):
+    ACTIVITY_TYPES = [
+        ('login_success', 'Login Success'),
+        ('login_failed', 'Login Failed'),
+        ('submission_single', 'Single Response Submission'),
+        ('submission_bulk', 'Bulk Responses Submission'),
+        ('password_reset', 'Password Reset'),
+        ('question_created', 'Question Created'),
+        ('question_updated', 'Question Updated'),
+        ('question_deleted', 'Question Deleted'),
+        ('question_toggled', 'Question Toggled'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='activity_logs'
+    )
+    user_email = models.CharField(max_length=255, blank=True)
+    user_name = models.CharField(max_length=150, blank=True)
+    activity_type = models.CharField(max_length=30, choices=ACTIVITY_TYPES)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'activity_logs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user_email} | {self.activity_type} | {self.created_at}"
+
+    @classmethod
+    def log_activity(cls, request, activity_type, user=None, email=None, name=None, details=None):
+        try:
+            if details is None:
+                details = {}
+            
+            # Determine IP address
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0].strip()
+            else:
+                ip = request.META.get('REMOTE_ADDR')
+                
+            # Determine User Agent
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            
+            # Handle user/email/name resolution
+            if user and not user.is_anonymous:
+                log_user = user
+                log_email = user.email
+                log_name = user.name
+            else:
+                log_user = None
+                log_email = email or ''
+                log_name = name or ''
+                
+            return cls.objects.create(
+                user=log_user,
+                user_email=log_email,
+                user_name=log_name,
+                activity_type=activity_type,
+                ip_address=ip,
+                user_agent=user_agent,
+                details=details
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to record activity log: {e}")
+            return None
+

@@ -699,7 +699,7 @@ export default function AssessmentPage() {
 
                 return (
                   <button key={sec}
-                    // onClick={() => setActiveIdx(i)}
+                    onClick={() => setActiveIdx(i)}
                     className="sidebar-section-btn"
                     style={{
                       width: '100%', textAlign: 'left', padding: '10px 14px',

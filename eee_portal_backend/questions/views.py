@@ -187,6 +187,15 @@ class QuestionViewSet(viewsets.ModelViewSet):
         question = self.get_object()
         question.is_active = not question.is_active
         question.save(update_fields=['is_active'])
+
+        from users.models import ActivityLog
+        ActivityLog.log_activity(
+            request=request,
+            activity_type='question_toggled',
+            user=request.user,
+            details={'question_id': question.id, 'is_active': question.is_active}
+        )
+
         return Response({'id': question.id, 'is_active': question.is_active})
     
     @action(detail=True, methods=['delete'], url_path='delete', permission_classes=[IsAdmin])
@@ -196,6 +205,14 @@ class QuestionViewSet(viewsets.ModelViewSet):
         question_id = question.id  # Capture ID before it's gone
         question.delete()
         
+        from users.models import ActivityLog
+        ActivityLog.log_activity(
+            request=request,
+            activity_type='question_deleted',
+            user=request.user,
+            details={'question_id': question_id}
+        )
+
         return Response({
             'id': question_id, 
             'message': 'Question deleted successfully'
@@ -224,6 +241,15 @@ class QuestionViewSet(viewsets.ModelViewSet):
         serializer = QuestionSerializer(data=data, many=True)
         if serializer.is_valid():
             serializer.save()
+
+            from users.models import ActivityLog
+            ActivityLog.log_activity(
+                request=request,
+                activity_type='question_created',
+                user=request.user,
+                details={'count': len(data)}
+            )
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -261,6 +287,15 @@ class QuestionViewSet(viewsets.ModelViewSet):
         serializer = QuestionSerializer(question, data=update_data, partial=partial)
         if serializer.is_valid():
             serializer.save()
+
+            from users.models import ActivityLog
+            ActivityLog.log_activity(
+                request=request,
+                activity_type='question_updated',
+                user=request.user,
+                details={'question_id': question_id}
+            )
+
             return Response({
                 'message': 'Question updated successfully',
                 'data': serializer.data

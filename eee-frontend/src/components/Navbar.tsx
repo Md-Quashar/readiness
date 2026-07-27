@@ -15,6 +15,7 @@ export default function Navbar() {
       { label: 'Dashboard', path: '/admin/dashboard' },
       { label: 'Questions', path: '/admin/questions' },
       { label: 'Assessments', path: '/admin/assessments' },
+      { label: 'Monitoring', path: '/admin/monitoring' },
     ]
     : [{ label: 'My Assessment', path: '/assessment' }];
 

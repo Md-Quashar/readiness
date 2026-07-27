@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, Question, Response as UserResponse, AssessmentAnswer, Section, Scope } from '../types';
+import type { AuthResponse, Question, Response as UserResponse, AssessmentAnswer, Section, Scope, ActivityLog } from '../types';
 
 // Dynamically resolve the backend host so other devices on the same
 // network can reach the API via the host machine's IP address.
@@ -13,6 +13,41 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+// Response interceptor to handle token refresh on 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    // Check if error is 401 Unauthorized, and we haven't retried this request yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          // Attempt to get a new access token
+          const { data } = await axios.post<{ access: string }>(`${BASE_URL}/auth/token/refresh/`, {
+            refresh: refreshToken,
+          });
+          // Save new access token
+          localStorage.setItem('access_token', data.access);
+          // Update authorization header
+          originalRequest.headers.Authorization = `Bearer ${data.access}`;
+          // Retry the original request
+          return api(originalRequest);
+        } catch (refreshError) {
+          // If refresh token is expired/invalid, clear local storage and redirect to login
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 export const authAPI = {
@@ -28,6 +63,8 @@ export const authAPI = {
 
   resetPassword: (data: { email: string; new_password: string }) =>
     api.post('/auth/reset-password/', data),
+
+  getActivityLogs: () => api.get<ActivityLog[]>('/auth/activity-logs/'),
 };
 
 // ── Questions ─────────────────────────────────────────────────────────────

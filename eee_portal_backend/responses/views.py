@@ -78,6 +78,20 @@ class ResponseViewSet(viewsets.ModelViewSet):
                 defaults=defaults,
             )
             result_serializer = self.get_serializer(obj)
+
+            from users.models import ActivityLog
+            ActivityLog.log_activity(
+                request=request,
+                activity_type='submission_single',
+                user=request.user,
+                details={
+                    'question_id': question.id,
+                    'answer': defaults['answer'],
+                    'lab_type': defaults['lab_type'],
+                    'scope': defaults['scope']
+                }
+            )
+
             resp_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
             return DRFResponse(result_serializer.data, status=resp_status)
         return DRFResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -105,6 +119,20 @@ class ResponseViewSet(viewsets.ModelViewSet):
                     defaults=defaults,
                 )
                 saved_objects.append(obj)
+
+            first_item = serializer.validated_data[0] if serializer.validated_data else {}
+            from users.models import ActivityLog
+            ActivityLog.log_activity(
+                request=request,
+                activity_type='submission_bulk',
+                user=request.user,
+                details={
+                    'count': len(serializer.validated_data),
+                    'lab_type': first_item.get('lab_type', ''),
+                    'scope': first_item.get('scope', [])
+                }
+            )
+
             result_serializer = self.get_serializer(saved_objects, many=True)
             return DRFResponse(result_serializer.data, status=status.HTTP_200_OK)
         return DRFResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

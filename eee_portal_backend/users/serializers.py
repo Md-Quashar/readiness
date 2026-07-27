@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, ActivityLog
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -30,3 +30,10 @@ class UserPublicSerializer(serializers.ModelSerializer):
         model  = User
         fields = ['id', 'name', 'email', 'role', 'created_at', 'updated_at']
         read_only_fields = fields
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityLog
+        fields = '__all__'
+

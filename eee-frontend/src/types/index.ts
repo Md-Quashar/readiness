@@ -78,3 +78,27 @@ export interface ThemeTokens {
 export interface RequirementNode { label: string; color: string; desc: string; iconKey: string; }
 export interface FeatureItem { iconKey: string; title: string; desc: string; }
 export interface StepItem { num: string; title: string; desc: string; }
+
+
+// ─── Monitoring ───────────────────────────────────────────────────────────────
+export interface ActivityLog {
+  id: number;
+  user?: number;
+  user_email: string;
+  user_name: string;
+  activity_type:
+    | 'login_success'
+    | 'login_failed'
+    | 'submission_single'
+    | 'submission_bulk'
+    | 'password_reset'
+    | 'question_created'
+    | 'question_updated'
+    | 'question_deleted'
+    | 'question_toggled';
+  ip_address?: string;
+  user_agent?: string;
+  details: Record<string, any>;
+  created_at: string;
+}
+
