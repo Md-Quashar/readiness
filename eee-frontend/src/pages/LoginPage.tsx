@@ -154,9 +154,11 @@ export default function LoginPage() {
           New applicant?{' '}
           <Link to="/register" style={{ color: 'var(--blue)', fontWeight: 600 }}>Create account</Link>
         </p>
+        {/*
         <p style={{ marginTop: 12, textAlign: 'center', fontSize: 14, color: 'var(--gray5)' }}>
           <Link to="/forgot-password" style={{ color: 'var(--blue)', fontWeight: 600 }}>Forgot password?</Link>
         </p>
+        */}
         <p style={{ marginTop: 12, textAlign: 'center', fontSize: 14, color: 'var(--gray5)' }}>
           <Link to="/home" style={{ color: 'var(--blue)', fontWeight: 600 }}>Back to Home</Link>
         </p>

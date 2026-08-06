@@ -32,11 +32,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('access_token', access);
     localStorage.setItem('refresh_token', refresh);
     localStorage.setItem('user', JSON.stringify(userData));
+    sessionStorage.removeItem(`eee_assessment_prompted_${userData.id}`);
     setUser(userData);
     setToken(access);
   };
 
   const logout = () => {
+    if (user?.id) {
+      sessionStorage.removeItem(`eee_assessment_prompted_${user.id}`);
+    }
     // Only remove auth-related keys; preserve assessment responses & theme
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');

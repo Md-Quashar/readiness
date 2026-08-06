@@ -44,12 +44,10 @@ export function CTASection({ onStartClick }: CTASectionProps) {
             style={{ background: t.btnPrimary, color: t.btnText, fontSize: 15, padding: "14px 36px", borderRadius: "var(--radius)", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none", fontWeight: 600 }}
 
           >
-            Begin Readiness Evaluation <ArrowRightIcon size={16} />
+            Start Readiness Check <ArrowRightIcon size={16} />
           </a>
 
-          <p style={{ marginTop: 18, fontSize: 12, color: t.textMuted }}>
-            Free to use
-          </p>
+
         </div>
       </div>
     </section>

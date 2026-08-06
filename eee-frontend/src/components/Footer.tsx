@@ -24,8 +24,12 @@ export function Footer() {
           © {year} Government Portal · All Rights Reserved
         </p>
         <p style={{ color: t.footerText, fontSize: 13, textAlign: "center" }}>
-          Developed by Centre for Distributed Computing, Jadavpur University  funded by <a href="https://meity.gov.in/" target="_blank" style={{ textDecoration: "none", transition: "color 0.2s ease" }} onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "#60a5fa"; }} onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = t.footerText; }}>Meity</a>
+          Developed by Centre for Distributed Computing, Jadavpur University
         </p>
+        <p style={{ color: t.footerText, fontSize: 13, textAlign: "center" }}>
+          Under the project funded by  <a href="https://meity.gov.in/" target="_blank" style={{ textDecoration: "none", transition: "color 0.2s ease" }} onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "#60a5fa"; }} onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = t.footerText; }}>Meity</a>
+        </p>
+        {/*
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
           {FOOTER_LINKS.map((link, i) => (
             <>
@@ -42,6 +46,7 @@ export function Footer() {
             </>
           ))}
         </div>
+        */}
       </div>
     </footer>
   );

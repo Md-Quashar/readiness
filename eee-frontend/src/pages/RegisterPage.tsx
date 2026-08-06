@@ -118,6 +118,7 @@ export default function RegisterPage() {
               onChange={e => setForm({ ...form, email: e.target.value })}
               pattern="[^\s@]+@[^\s@]+\.[^\s@]{2,}"
               title="Enter a valid email address"
+              maxLength={30}
               required />
           </div>
 

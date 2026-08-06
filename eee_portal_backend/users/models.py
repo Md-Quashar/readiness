@@ -99,10 +99,21 @@ class ActivityLog(models.Model):
                 details = {}
             
             # Determine IP address
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            if x_forwarded_for:
-                ip = x_forwarded_for.split(',')[0].strip()
-            else:
+            ip = None
+            for header in ['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CF_CONNECTING_IP', 'HTTP_CLIENT_IP', 'HTTP_X_CLIENT_IP']:
+                val = request.META.get(header)
+                if val:
+                    # Some headers like X-Forwarded-For can contain comma-separated IPs
+                    ips = [x.strip() for x in val.split(',')]
+                    # Use the first non-empty IP
+                    for candidate in ips:
+                        if candidate:
+                            ip = candidate
+                            break
+                if ip:
+                    break
+            
+            if not ip:
                 ip = request.META.get('REMOTE_ADDR')
                 
             # Determine User Agent

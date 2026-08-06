@@ -18,7 +18,7 @@ export function RequirementsSection() {
 
         {/* Header */}
         <div ref={headerRef} style={{ ...useRevealStyle(headerIn), textAlign: "center", marginBottom: 48 }}>
-          <SectionBadge label="Core Framework" />
+          <SectionBadge label="Readiness Framework" />
           <h2
             className="eee-display-font"
             style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)", fontWeight: 400, color: t.text, marginBottom: 12, letterSpacing: "-0.02em" }}

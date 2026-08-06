@@ -6,7 +6,7 @@ import type { Question, AssessmentAnswer } from '../types';
 import Navbar from '../components/Navbar';
 
 const LAB_TYPES = [
-  'Central Government', 'State Government', 'Union Territory', 'Other',
+  'Central Government', 'State Government', 'Union Territory'
 ]
 
 // ── Checkbox Dropdown Component ──────────────────────────────────────────────
@@ -307,22 +307,31 @@ export default function AssessmentPage() {
   const { user } = useAuth();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Load any previously saved state for this user (on initial mount)
-  const saved = useRef(loadPersistedState(user?.id));
   const hasRestored = useRef(false);
 
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<number, 'yes' | 'no'>>(saved.current.answers ?? {});
-  const [labType, setLabType] = useState(saved.current.labType ?? '');
-  const [scope, setScope] = useState<string[]>(saved.current.scope ?? []);
+  const [answers, setAnswers] = useState<Record<number, 'yes' | 'no'>>({});
+  const [labType, setLabType] = useState('');
+  const [scope, setScope] = useState<string[]>([]);
   const [scopes, setScopes] = useState<string[]>([]);
   const [sections, setSections] = useState<string[]>([]);
-  const [activeIdx, setActiveIdx] = useState(saved.current.activeIdx ?? 0);
+  const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [hasPreviousSubmission, setHasPreviousSubmission] = useState(false);
+
+  // Restore/Confirmation modal state
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [pendingRecord, setPendingRecord] = useState<{
+    answers: Record<number, 'yes' | 'no'>;
+    labType: string;
+    scope: string[];
+    activeIdx?: number;
+    isFromServer: boolean;
+  } | null>(null);
 
   // When user becomes available (e.g. after login), restore their saved state
   // First try localStorage (in-progress work), then fall back to server (previous submission)
@@ -332,59 +341,147 @@ export default function AssessmentPage() {
       const restored = loadPersistedState(user.id);
       const hasLocalAnswers = restored.answers && Object.keys(restored.answers).length > 0;
 
-      if (hasLocalAnswers) {
-        // Restore from localStorage (in-progress, unsaved work)
-        setAnswers(restored.answers!);
-        if (restored.labType) setLabType(restored.labType);
-        if (restored.scope && restored.scope.length > 0) setScope(restored.scope);
-        if (restored.activeIdx !== undefined) setActiveIdx(restored.activeIdx);
-      } else {
-        // No local progress — try fetching previously submitted responses from the server
-        responsesAPI.getMyResponses()
-          .then(res => {
-            const data: any = res.data;
-            const serverResponses = Array.isArray(data) ? data : [];
-            if (serverResponses.length > 0) {
-              // Auto-fill answers from server
-              const restoredAnswers: Record<number, 'yes' | 'no'> = {};
-              serverResponses.forEach((r: any) => {
-                restoredAnswers[r.question] = r.answer;
-              });
-              setAnswers(restoredAnswers);
+      const sessionKey = `eee_assessment_prompted_${user.id}`;
+      const alreadyPrompted = sessionStorage.getItem(sessionKey) === 'true';
 
-              // Restore lab_type and scope from the first response (they are the same across all)
-              const firstResponse = serverResponses[0];
-              if (firstResponse.lab_type) setLabType(firstResponse.lab_type);
-              if (firstResponse.scope) {
-                // Handle scope as either an array or a comma-separated string
-                let scopeList: string[];
-                if (Array.isArray(firstResponse.scope)) {
-                  scopeList = firstResponse.scope.filter((s: string) => s.length > 0);
-                } else {
-                  scopeList = firstResponse.scope
-                    .split(',')
-                    .map((s: string) => s.trim())
-                    .filter((s: string) => s.length > 0);
+      if (alreadyPrompted) {
+        // Already prompted this session — perform standard auto-restore silently
+        setIsInitialized(true);
+        if (hasLocalAnswers) {
+          setAnswers(restored.answers!);
+          if (restored.labType) setLabType(restored.labType);
+          if (restored.scope && restored.scope.length > 0) setScope(restored.scope);
+          if (restored.activeIdx !== undefined) setActiveIdx(restored.activeIdx);
+        } else {
+          responsesAPI.getMyResponses()
+            .then(res => {
+              const data: any = res.data;
+              const serverResponses = Array.isArray(data) ? data : [];
+              if (serverResponses.length > 0) {
+                const restoredAnswers: Record<number, 'yes' | 'no'> = {};
+                serverResponses.forEach((r: any) => {
+                  restoredAnswers[r.question] = r.answer;
+                });
+                setAnswers(restoredAnswers);
+
+                const firstResponse = serverResponses[0];
+                if (firstResponse.lab_type) setLabType(firstResponse.lab_type);
+                if (firstResponse.scope) {
+                  let scopeList: string[];
+                  if (Array.isArray(firstResponse.scope)) {
+                    scopeList = firstResponse.scope.filter((s: string) => s.length > 0);
+                  } else {
+                    scopeList = firstResponse.scope
+                      .split(',')
+                      .map((s: string) => s.trim())
+                      .filter((s: string) => s.length > 0);
+                  }
+                  if (scopeList.length > 0) setScope(scopeList);
                 }
-                if (scopeList.length > 0) setScope(scopeList);
+                setHasPreviousSubmission(true);
               }
-
-              setHasPreviousSubmission(true);
-            }
-          })
-          .catch(() => {
-            // Silently ignore — user may not have submitted before
+            })
+            .catch(() => { });
+        }
+      } else {
+        // Not prompted yet — check if there is a record to restore
+        if (hasLocalAnswers) {
+          setPendingRecord({
+            answers: restored.answers!,
+            labType: restored.labType ?? '',
+            scope: restored.scope ?? [],
+            activeIdx: restored.activeIdx ?? 0,
+            isFromServer: false
           });
+          setShowRestoreModal(true);
+        } else {
+          // Check server
+          responsesAPI.getMyResponses()
+            .then(res => {
+              const data: any = res.data;
+              const serverResponses = Array.isArray(data) ? data : [];
+              if (serverResponses.length > 0) {
+                const restoredAnswers: Record<number, 'yes' | 'no'> = {};
+                serverResponses.forEach((r: any) => {
+                  restoredAnswers[r.question] = r.answer;
+                });
+
+                let finalLabType = '';
+                let finalScope: string[] = [];
+                const firstResponse = serverResponses[0];
+                if (firstResponse.lab_type) finalLabType = firstResponse.lab_type;
+                if (firstResponse.scope) {
+                  if (Array.isArray(firstResponse.scope)) {
+                    finalScope = firstResponse.scope.filter((s: string) => s.length > 0);
+                  } else {
+                    finalScope = firstResponse.scope
+                      .split(',')
+                      .map((s: string) => s.trim())
+                      .filter((s: string) => s.length > 0);
+                  }
+                }
+
+                setPendingRecord({
+                  answers: restoredAnswers,
+                  labType: finalLabType,
+                  scope: finalScope,
+                  activeIdx: 0,
+                  isFromServer: true
+                });
+                setShowRestoreModal(true);
+              } else {
+                // No records found anywhere
+                setIsInitialized(true);
+              }
+            })
+            .catch(() => {
+              // Error or no records
+              setIsInitialized(true);
+            });
+        }
       }
     }
   }, [user?.id]);
 
   // Persist answers, labType, scope, activeIdx to localStorage on every change
-  // Only save when we have a real user ID to avoid clobbering data
+  // Only save when we have a real user ID and assessment state has been initialized/resolved to avoid clobbering data
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !isInitialized) return;
     savePersistedState(user.id, { answers, labType, scope, activeIdx });
-  }, [answers, labType, scope, activeIdx, user?.id]);
+  }, [answers, labType, scope, activeIdx, user?.id, isInitialized]);
+
+  const handleRestore = () => {
+    if (pendingRecord) {
+      setAnswers(pendingRecord.answers);
+      setLabType(pendingRecord.labType);
+      setScope(pendingRecord.scope);
+      if (pendingRecord.activeIdx !== undefined) {
+        setActiveIdx(pendingRecord.activeIdx);
+      }
+      if (pendingRecord.isFromServer) {
+        setHasPreviousSubmission(true);
+      }
+    }
+    if (user?.id) {
+      sessionStorage.setItem(`eee_assessment_prompted_${user.id}`, 'true');
+    }
+    setIsInitialized(true);
+    setShowRestoreModal(false);
+  };
+
+  const handleStartFresh = () => {
+    clearPersistedState(user?.id);
+    setAnswers({});
+    setLabType('');
+    setScope([]);
+    setActiveIdx(0);
+    setHasPreviousSubmission(false);
+    if (user?.id) {
+      sessionStorage.setItem(`eee_assessment_prompted_${user.id}`, 'true');
+    }
+    setIsInitialized(true);
+    setShowRestoreModal(false);
+  };
 
   useEffect(() => {
     questionsAPI.getActive()
@@ -556,6 +653,50 @@ export default function AssessmentPage() {
   return (
     <div>
       <Navbar />
+
+      {showRestoreModal && (
+        <div className="modal-backdrop">
+          <div className="modal" style={{ maxWidth: 480, textAlign: 'center' }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: '50%', background: 'var(--blue-lt)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 4v6h6" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+            </div>
+            <h3 style={{ fontSize: 20, marginBottom: 12, fontWeight: 700 }}>Restore Previous Assessment?</h3>
+            <p style={{ color: 'var(--gray5)', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+              We found {pendingRecord?.isFromServer ? 'a previously submitted' : 'an in-progress'} assessment record for your account.
+              Would you like to restore your previous answers or start with a fresh assessment?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleRestore}
+                style={{ justifyContent: 'center', padding: '12px 20px', fontSize: 14, fontWeight: 600 }}
+              >
+                Restore Previous Records
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={handleStartFresh}
+                style={{
+                  justifyContent: 'center',
+                  padding: '12px 20px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--red)',
+                  border: '1px solid rgba(220,38,38,.3)',
+                }}
+              >
+                Start Fresh Assessment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top progress strip */}
       <div style={{ height: 3, background: 'var(--gray2)' }}>
