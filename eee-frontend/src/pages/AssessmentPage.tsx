@@ -304,7 +304,7 @@ function renderBoldText(text: string): React.ReactNode {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function AssessmentPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Load any previously saved state for this user (on initial mount)
@@ -323,6 +323,9 @@ export default function AssessmentPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [hasPreviousSubmission, setHasPreviousSubmission] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isGeneratingPreviousPDF, setIsGeneratingPreviousPDF] = useState(false);
+  const [isDownloadingSubmitted, setIsDownloadingSubmitted] = useState(false);
 
   // When user becomes available (e.g. after login), restore their saved state
   // First try sessionStorage (in-progress work), then fall back to server (previous submission)
@@ -432,11 +435,18 @@ export default function AssessmentPage() {
     setAnswers(prev => { const n = { ...prev }; ids.forEach(id => delete n[id]); return n; });
   };
 
-  const handleSubmit = async () => {
+  const handleOpenPreview = () => {
     if (!labType) { setError('Please select a Lab Type before submitting.'); return; }
     if (scope.length === 0) { setError('Please select at least one Scope before submitting.'); return; }
     if (!allDone) { setError(`Please answer all questions. ${totalQs - totalAnswered} remaining.`); return; }
-    setError(''); setSubmitting(true);
+    setError('');
+    setShowPreview(true);
+  };
+
+  const handleFinalSubmit = async () => {
+    if (!labType || scope.length === 0 || !allDone) return;
+    setError('');
+    setSubmitting(true);
     try {
       const payload: AssessmentAnswer[] = Object.entries(answers).map(([qId, answer]) => ({
         question: Number(qId), answer, lab_type: labType, scope: scope.join(', '),
@@ -444,28 +454,64 @@ export default function AssessmentPage() {
       await responsesAPI.submit(payload);
       clearPersistedState(user?.id);
       setHasPreviousSubmission(false);
+      setShowPreview(false);
       setSubmitted(true);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Submission failed. Please try again.');
-    } finally { setSubmitting(false); }
+      setShowPreview(false);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDownloadPDF = async (printerFriendly = false) => {
-    const scopeLabel = scope.join(', ');
+  const handleDownloadPDFAndLogout = async (printerFriendly = false) => {
+    setIsDownloadingSubmitted(true);
+    try {
+      const scopeLabel = scope.join(', ');
 
-    await generatePDFReport({
-      applicantName: user?.name || '',
-      applicantEmail: user?.email || '',
-      labType,
-      scope: scopeLabel,
-      questions,
-      printerFriendly,
-      responses: Object.entries(answers).map(([qId, answer]) => ({
-        id: 0, user: user?.email || '',
-        question: Number(qId), answer, lab_type: labType, scope: scopeLabel,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      })),
-    });
+      await generatePDFReport({
+        applicantName: user?.name || '',
+        applicantEmail: user?.email || '',
+        labType,
+        scope: scopeLabel,
+        questions,
+        printerFriendly,
+        responses: Object.entries(answers).map(([qId, answer]) => ({
+          id: 0, user: user?.email || '',
+          question: Number(qId), answer, lab_type: labType, scope: scopeLabel,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        })),
+      });
+      await logout();
+    } catch (err) {
+      setError('Failed to generate PDF report.');
+    } finally {
+      setIsDownloadingSubmitted(false);
+    }
+  };
+
+  const handleDownloadPreviousReport = async (printerFriendly = false) => {
+    setIsGeneratingPreviousPDF(true);
+    try {
+      const scopeLabel = scope.join(', ');
+      await generatePDFReport({
+        applicantName: user?.name || '',
+        applicantEmail: user?.email || '',
+        labType,
+        scope: scopeLabel,
+        questions,
+        printerFriendly,
+        responses: Object.entries(answers).map(([qId, answer]) => ({
+          id: 0, user: user?.email || '',
+          question: Number(qId), answer, lab_type: labType, scope: scopeLabel,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        })),
+      });
+    } catch (err) {
+      setError('Failed to generate previous report PDF.');
+    } finally {
+      setIsGeneratingPreviousPDF(false);
+    }
   };
 
   // ── Loading ──────────────────────────────────────────────────────────────
@@ -505,7 +551,7 @@ export default function AssessmentPage() {
 
             <h2 style={{ fontSize: 26, marginBottom: 8 }}>Assessment Submitted</h2>
             <p className="submitted-desc" style={{ color: 'var(--gray5)', marginBottom: 36, fontSize: 15 }}>
-              Your responses have been recorded. Download your compliance report below. 100% compliance is required for Application.
+              Your responses have been recorded. Download your compliance report below. Downloading will log you out automatically.
             </p>
 
             {/* Score ring */}
@@ -534,17 +580,19 @@ export default function AssessmentPage() {
             </div>
 
             <div className="download-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-primary btn-lg" onClick={() => handleDownloadPDF(false)}
+              <button className="btn btn-primary btn-lg" onClick={() => handleDownloadPDFAndLogout(false)}
+                disabled={isDownloadingSubmitted}
                 style={{ fontSize: 15 }}>
-                ⬇ Download Full Report
+                {isDownloadingSubmitted ? 'Generating Report…' : '⬇ Download Full Report & Logout'}
               </button>
-              <button className="btn btn-ghost btn-lg" onClick={() => handleDownloadPDF(true)}
+              <button className="btn btn-ghost btn-lg" onClick={() => handleDownloadPDFAndLogout(true)}
+                disabled={isDownloadingSubmitted}
                 style={{ border: '2px solid var(--gray3)', fontSize: 15, color: 'var(--text)' }}>
-                Printer Friendly (B&W)
+                {isDownloadingSubmitted ? 'Generating…' : 'Printer Friendly (B&W) & Logout'}
               </button>
             </div>
             <p style={{ marginTop: 12, fontSize: 13, color: 'var(--gray4)' }}>
-              Report includes all questions, responses, feedback and guidance
+              Report includes all questions, responses, feedback and guidance. Downloading will log you out securely.
             </p>
           </div>
         </div>
@@ -611,12 +659,24 @@ export default function AssessmentPage() {
               <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Assessment Progress</p>
               <p style={{ fontSize: 12, color: 'var(--gray5)' }}>{completedCount} of {sections.length} sections complete</p>
             </div>
-            <span style={{
-              background: overallPct === 100 ? 'var(--green-lt)' : 'var(--blue-lt)',
-              color: overallPct === 100 ? 'var(--green)' : 'var(--blue)',
-              borderRadius: 99, padding: '4px 14px', fontSize: 15, fontWeight: 700,
-              fontFamily: 'var(--font-head)',
-            }}>{overallPct}%</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {hasPreviousSubmission && (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => handleDownloadPreviousReport(false)}
+                  disabled={isGeneratingPreviousPDF}
+                  style={{ fontSize: 13, padding: '5px 12px', border: '1px solid var(--blue)', color: 'var(--blue)' }}
+                >
+                  {isGeneratingPreviousPDF ? 'Generating…' : '📄 Download Previous Report'}
+                </button>
+              )}
+              <span style={{
+                background: overallPct === 100 ? 'var(--green-lt)' : 'var(--blue-lt)',
+                color: overallPct === 100 ? 'var(--green)' : 'var(--blue)',
+                borderRadius: 99, padding: '4px 14px', fontSize: 15, fontWeight: 700,
+                fontFamily: 'var(--font-head)',
+              }}>{overallPct}%</span>
+            </div>
           </div>
           <div className="progress-track">
             <div className="progress-fill" style={{
@@ -627,38 +687,22 @@ export default function AssessmentPage() {
         </div>
 
         {/* Previous submission restored banner */}
-        {hasPreviousSubmission && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(99,102,241,.08))',
-            border: '1.5px solid rgba(59,130,246,.3)',
-            borderRadius: 12, padding: '16px 22px', marginBottom: 22,
-            display: 'flex', alignItems: 'center', gap: 14,
-          }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%',
-              background: 'rgba(59,130,246,.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 700, color: 'var(--blue)', marginBottom: 2 }}>Previous submission restored</p>
-              <p style={{ fontSize: 13, color: 'var(--gray5)' }}>
-                Your earlier responses have been auto-filled. You can review, edit your answers, and resubmit.
-              </p>
-            </div>
-            <button
-              onClick={() => setHasPreviousSubmission(false)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                color: 'var(--gray4)', fontSize: 18, lineHeight: 1, flexShrink: 0,
-              }}
-              title="Dismiss"
-            >✕</button>
+
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(99,102,241,.08))',
+          border: '1.5px solid rgba(59,130,246,.3)',
+          borderRadius: 12, padding: '16px 22px', marginBottom: 22,
+          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+        }}>
+
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <p style={{ fontSize: 13, color: 'var(--gray5)' }}>
+              Your earlier responses have been auto-filled. You can review, edit your answers, and resubmit, or download your previous report directly.
+            </p>
           </div>
-        )}
+
+        </div>
+
 
         {/* All done banner */}
         {allDone && (
@@ -671,8 +715,8 @@ export default function AssessmentPage() {
               <p style={{ fontWeight: 700, color: 'var(--green)', marginBottom: 2 }}>All sections completed!</p>
               <p style={{ fontSize: 13, color: '#047857' }}>Review your answers and submit the readiness assessment.</p>
             </div>
-            <button className="btn btn-success btn-lg" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Submitting…' : 'Submit Assessment →'}
+            <button className="btn btn-success btn-lg" onClick={handleOpenPreview} disabled={submitting}>
+              Submit Assessment →
             </button>
           </div>
         )}
@@ -890,9 +934,9 @@ export default function AssessmentPage() {
                       Next →
                     </button>
                   ) : (
-                    <button className="btn btn-success btn-lg" onClick={handleSubmit}
+                    <button className="btn btn-success btn-lg" onClick={handleOpenPreview}
                       disabled={submitting || !allDone}>
-                      {submitting ? 'Submitting…' : '✓ Submit Assessment'}
+                      ✓ Submit Assessment
                     </button>
                   )}
                 </div>
@@ -907,6 +951,210 @@ export default function AssessmentPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Preview Modal Pop-up ─────────────────────────────────────────────── */}
+      {showPreview && (
+        <div className="modal-backdrop" style={{ zIndex: 1000, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }}>
+          <div
+            className="modal fade-up"
+            style={{
+              maxWidth: 850,
+              width: '95%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: 0,
+              overflow: 'hidden',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                background: 'var(--btn-primary-bg)',
+                color: '#fff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <h2 style={{ fontSize: 20, color: '#fff', margin: 0, fontWeight: 700 }}>
+                  Assessment Response Preview
+                </h2>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: '4px 0 0' }}>
+                  Review all questions and your answers before final submission
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPreview(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none',
+                  color: '#fff',
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Close Preview"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Summary Row */}
+            <div
+              style={{
+                padding: '14px 24px',
+                background: 'var(--gray0)',
+                borderBottom: '1px solid var(--gray2)',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gray2)' }}>
+                <p style={{ fontSize: 11, color: 'var(--gray4)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Applicant</p>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: 'var(--text)' }}>{user?.name}</p>
+                <p style={{ fontSize: 11, color: 'var(--gray5)', margin: 0 }}>{user?.email}</p>
+              </div>
+              <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gray2)' }}>
+                <p style={{ fontSize: 11, color: 'var(--gray4)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Laboratory Type</p>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: 'var(--text)' }}>{labType}</p>
+              </div>
+              <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gray2)' }}>
+                <p style={{ fontSize: 11, color: 'var(--gray4)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Scope / Specialisation</p>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: 'var(--text)' }}>{scope.join(', ')}</p>
+              </div>
+              <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gray2)' }}>
+                <p style={{ fontSize: 11, color: 'var(--gray4)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Compliance Score</p>
+                <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: overallPct === 100 ? 'var(--green)' : 'var(--amber)' }}>
+                  {Object.values(answers).filter(a => a === 'yes').length} / {totalQs} ({overallPct}%)
+                </p>
+              </div>
+            </div>
+
+            {/* Questions & Responses List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              {sections.map(sec => {
+                const secQs = sectionQs(sec);
+                if (secQs.length === 0) return null;
+                return (
+                  <div key={sec} style={{ marginBottom: 24 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: 'var(--btn-primary-bg)',
+                        paddingBottom: 6,
+                        borderBottom: '2px solid var(--btn-primary-bg)',
+                        marginBottom: 12,
+                        textTransform: 'uppercase',
+                        letterSpacing: '.04em',
+                      }}
+                    >
+                      {sec} ({secQs.length} Questions)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {secQs.map((q, idx) => {
+                        const ans = answers[q.id];
+                        const isYes = ans === 'yes';
+                        return (
+                          <div
+                            key={q.id}
+                            style={{
+                              padding: '12px 16px',
+                              borderRadius: 8,
+                              background: 'var(--bg-card)',
+                              border: `1px solid ${isYes ? 'rgba(5,150,105,.25)' : 'rgba(220,38,38,.25)'}`,
+                              borderLeft: `4px solid ${isYes ? 'var(--green)' : 'var(--red)'}`,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: 16,
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: 'var(--text)' }}>
+                                <span style={{ color: 'var(--gray4)', marginRight: 6 }}>Q{idx + 1}.</span>
+                                {renderBoldText(q.question)}
+                              </p>
+                              {q.explanation && (
+                                <p style={{ fontSize: 12, color: 'var(--gray5)', margin: '4px 0 0', fontStyle: 'italic' }}>
+                                  {renderBoldText(q.explanation)}
+                                </p>
+                              )}
+                            </div>
+                            <div
+                              style={{
+                                padding: '4px 12px',
+                                borderRadius: 6,
+                                fontSize: 13,
+                                fontWeight: 700,
+                                background: isYes ? 'var(--green-lt)' : 'var(--red-lt)',
+                                color: isYes ? 'var(--green)' : 'var(--red)',
+                                border: `1px solid ${isYes ? 'rgba(5,150,105,.3)' : 'rgba(220,38,38,.3)'}`,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {isYes ? '✓ YES' : '✕ NO'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '16px 24px',
+                background: 'var(--gray0)',
+                borderTop: '1px solid var(--gray2)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <p style={{ fontSize: 13, color: 'var(--gray5)', margin: 0 }}>
+                Need to change any response? Click <strong>Edit Answers</strong> to return.
+              </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setShowPreview(false)}
+                  disabled={submitting}
+                  style={{ fontSize: 14, padding: '9px 18px' }}
+                >
+                  ✏️ Edit Answers
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={handleFinalSubmit}
+                  disabled={submitting}
+                  style={{ fontSize: 14, padding: '9px 22px', fontWeight: 600 }}
+                >
+                  {submitting ? 'Submitting…' : '✓ Final Submit'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
