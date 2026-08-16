@@ -155,6 +155,86 @@ export async function generatePDFReport(data: ReportData) {
     return curY + lineH;
   };
 
+  /**
+   * Render single line text in table cell supporting **bold** markdown tags.
+   * If the text exceeds maxW, truncates and appends '…'.
+   */
+  const drawInlineRichText = (
+    text: string,
+    startX: number,
+    textY: number,
+    maxW: number,
+    fontSize: number,
+    normalColor: [number, number, number],
+  ) => {
+    // Parse markdown **bold**
+    const segments: { text: string; bold: boolean }[] = [];
+    const regex = /\*\*(.+?)\*\*/g;
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIdx) {
+        segments.push({ text: text.slice(lastIdx, match.index), bold: false });
+      }
+      segments.push({ text: match[1], bold: true });
+      lastIdx = match.index + match[0].length;
+    }
+    if (lastIdx < text.length) {
+      segments.push({ text: text.slice(lastIdx), bold: false });
+    }
+
+    doc.setFontSize(fontSize);
+
+    // Calculate total width across all segments
+    let totalW = 0;
+    segments.forEach(seg => {
+      doc.setFont('helvetica', seg.bold ? 'bold' : 'normal');
+      totalW += doc.getTextWidth(seg.text);
+    });
+
+    doc.setFont('helvetica', 'normal');
+    const ellipseW = doc.getTextWidth('…');
+
+    let renderSegments: { text: string; bold: boolean }[] = segments;
+
+    // Truncate if exceeding maxW
+    if (totalW > maxW) {
+      renderSegments = [];
+      let accumulatedW = 0;
+      const targetW = maxW - ellipseW;
+
+      for (const seg of segments) {
+        doc.setFont('helvetica', seg.bold ? 'bold' : 'normal');
+        const segW = doc.getTextWidth(seg.text);
+
+        if (accumulatedW + segW <= targetW) {
+          renderSegments.push(seg);
+          accumulatedW += segW;
+        } else {
+          const availW = Math.max(0, targetW - accumulatedW);
+          let cropped = '';
+          for (let i = 0; i < seg.text.length; i++) {
+            const ch = seg.text[i];
+            if (doc.getTextWidth(cropped + ch) > availW) break;
+            cropped += ch;
+          }
+          renderSegments.push({ text: cropped + '…', bold: seg.bold });
+          break;
+        }
+      }
+    }
+
+    // Render segments
+    let curX = startX;
+    renderSegments.forEach(seg => {
+      doc.setFont('helvetica', seg.bold ? 'bold' : 'normal');
+      setTC(seg.bold ? (isBW ? black : [20, 25, 50]) : normalColor);
+      doc.text(seg.text, curX, textY);
+      curX += doc.getTextWidth(seg.text);
+    });
+  };
+
   const fillRect = (h: number, color: [number, number, number], x = margin, w = fullW) => {
     doc.setFillColor(...color);
     doc.rect(x, y, w, h, 'F');
@@ -418,10 +498,9 @@ export async function generatePDFReport(data: ReportData) {
       const secText = item.section.length > 22 ? item.section.substring(0, 20) + '…' : item.section;
       doc.text(secText, colSec + 1, y);
 
-      // Truncate question to fit
+      // Truncate question to fit & render with **bold** support
       const maxQW = colSt - colQ - 2;
-      const qText = doc.splitTextToSize(item.questionText, maxQW);
-      doc.text(qText[0] + (qText.length > 1 ? '…' : ''), colQ + 1, y);
+      drawInlineRichText(item.questionText, colQ + 1, y, maxQW, 8, isBW ? black : [40, 40, 60]);
 
       // Status pill
       doc.setFont('helvetica', 'bold');

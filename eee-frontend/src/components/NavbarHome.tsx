@@ -7,8 +7,8 @@ interface NavbarProps {
 }
 
 const NAV_LINKS = [
-  { label: "User Guide", href: "https://docs.google.com/document/d/1PqAFzq8hjBNbr5n-Rs5rqtvTOEF1yZkB934W4Rrc_ZA/edit?tab=t.0" },
-  { label: "Readiness Check", href: "/register" },
+  //{ label: "User Guide", href: "https://docs.google.com/document/d/1PqAFzq8hjBNbr5n-Rs5rqtvTOEF1yZkB934W4Rrc_ZA/edit?tab=t.0" },
+  { label: "Sign Up", href: "/register" },
 ];
 
 export function Navbar({ onStartClick }: NavbarProps) {

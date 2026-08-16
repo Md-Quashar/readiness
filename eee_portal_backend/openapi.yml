@@ -414,50 +414,13 @@ paths:
         '404':
           description: Question not found
 
-  /responses/single-response/:
+  /responses/submission/:
     post:
-      summary: Store single response
-      description: 🔐 User authentication required - Store single response record for a question
+      summary: Submit assessment responses
+      description: 🔐 User authentication required - Submit assessment response records for a user
       tags:
         - Responses Service
-      operationId: submit_single_response
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - question
-                - options
-              properties:
-                question:
-                  type: integer
-                  example: 1
-                options:
-                  type: integer
-                  example: 0
-      responses:
-        '201':
-          description: Response stored successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Response'
-        '400':
-          description: Invalid input
-        '401':
-          description: Unauthorized - Token missing or invalid
-
-  /responses/bulk-response/:
-    post:
-      summary: Store bulk responses
-      description: 🔐 User authentication required - Store bulk response records of same user
-      tags:
-        - Responses Service
-      operationId: submit_bulk_response
+      operationId: submit_responses
       security:
         - bearerAuth: []
       requestBody:
@@ -470,21 +433,25 @@ paths:
                 type: object
                 required:
                   - question
-                  - options
+                  - answer
                 properties:
                   question:
                     type: integer
-                  options:
-                    type: integer
-              example:
-                - question: 1
-                  options: 0
-                - question: 2
-                  options: 1
-                - question: 3
-                  options: 2
+                    example: 1
+                  answer:
+                    type: string
+                    enum: [yes, no]
+                    example: yes
+                  lab_type:
+                    type: string
+                    example: State Forensic Lab
+                  scope:
+                    type: array
+                    items:
+                      type: string
+                    example: ["Cyber Forensics", "Mobile Forensics"]
       responses:
-        '201':
+        '200':
           description: Responses stored successfully
           content:
             application/json:

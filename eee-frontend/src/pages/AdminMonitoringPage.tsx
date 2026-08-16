@@ -3,8 +3,8 @@ import { authAPI, responsesAPI } from '../api';
 import Navbar from '../components/Navbar';
 import type { User, ActivityLog, Response as UserResponse } from '../types';
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -59,7 +59,7 @@ export default function AdminMonitoringPage() {
   const totalLogins = logs.filter(l => l.activity_type === 'login_success').length;
   const failedLogins = logs.filter(l => l.activity_type === 'login_failed').length;
   const totalSubmissions = logs.filter(
-    l => l.activity_type === 'submission_single' || l.activity_type === 'submission_bulk'
+    l => l.activity_type === 'submission' || l.activity_type === 'submission_single' || l.activity_type === 'submission_bulk'
   ).length;
 
   // ─── User Monitoring List ─────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export default function AdminMonitoringPage() {
 
     // Last submission details
     const submissionLogs = userLogs.filter(
-      l => l.activity_type === 'submission_single' || l.activity_type === 'submission_bulk'
+      l => l.activity_type === 'submission' || l.activity_type === 'submission_single' || l.activity_type === 'submission_bulk'
     );
     const lastSubmission = submissionLogs.length > 0 ? submissionLogs[0] : null;
 
@@ -123,10 +123,12 @@ export default function AdminMonitoringPage() {
         log.user_name.toLowerCase().includes(search.toLowerCase());
 
       let matchesType = true;
-      if (filterType === 'logins') {
-        matchesType = log.activity_type === 'login_success' || log.activity_type === 'login_failed';
+      if (filterType === 'login_success') {
+        matchesType = log.activity_type === 'login_success';
+      } else if (filterType === 'login_failed') {
+        matchesType = log.activity_type === 'login_failed';
       } else if (filterType === 'submissions') {
-        matchesType = log.activity_type === 'submission_single' || log.activity_type === 'submission_bulk';
+        matchesType = log.activity_type === 'submission' || log.activity_type === 'submission_single' || log.activity_type === 'submission_bulk';
       } else if (filterType === 'questions') {
         matchesType = log.activity_type.startsWith('question_');
       } else if (filterType === 'resets') {
@@ -145,10 +147,12 @@ export default function AdminMonitoringPage() {
         return { label: 'Login Success', color: 'var(--green)', bg: 'var(--green-lt)' };
       case 'login_failed':
         return { label: 'Login Failed', color: 'var(--red)', bg: 'var(--red-lt)' };
+      case 'submission':
+        return { label: 'Submission', color: 'var(--blue)', bg: 'var(--blue-lt)' };
       case 'submission_single':
-        return { label: 'Single Submission', color: 'var(--blue)', bg: 'var(--blue-lt)' };
+        return { label: 'Single Submission (Legacy)', color: 'var(--blue)', bg: 'var(--blue-lt)' };
       case 'submission_bulk':
-        return { label: 'Bulk Submission', color: 'var(--purple)', bg: 'rgba(124, 58, 237, 0.15)' };
+        return { label: 'Bulk Submission (Legacy)', color: 'var(--purple)', bg: 'rgba(124, 58, 237, 0.15)' };
       case 'password_reset':
         return { label: 'Password Reset', color: 'var(--amber)', bg: 'var(--amber-lt)' };
       case 'question_created':
@@ -162,6 +166,62 @@ export default function AdminMonitoringPage() {
       default:
         return { label: type, color: 'var(--gray5)', bg: 'var(--gray1)' };
     }
+  };
+
+  const renderMetaDetails = (details: Record<string, any>, activityType: string) => {
+    if (!details || Object.keys(details).length === 0) return null;
+
+    const formatValue = (_key: string, val: any) => {
+      if (Array.isArray(val)) {
+        return val.length > 0 ? val.join(', ') : 'None';
+      }
+      if (typeof val === 'boolean') {
+        return val ? 'Yes' : 'No';
+      }
+      if (val === null || val === undefined || val === '') {
+        return 'N/A';
+      }
+      return String(val);
+    };
+
+    const getFriendlyKeyLabel = (key: string) => {
+      switch (key) {
+        case 'question_id':
+          return 'Question ID';
+        case 'is_active':
+          return 'Is Enabled';
+        case 'count':
+          return activityType.startsWith('question_') ? 'Number of Questions' : 'Questions Answered';
+        case 'lab_type':
+          return 'Laboratory Type';
+        case 'scope':
+          return 'Scope of Assessment';
+        case 'reason':
+          return 'Failure Reason';
+        case 'answer':
+          return 'Selected Answer';
+        default:
+          return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      }
+    };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray5)', marginBottom: 2 }}>Activity Details:</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--gray1)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13 }}>
+          {Object.entries(details).map(([key, val]) => (
+            <div key={key} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600, color: 'var(--gray6)', minWidth: 150, display: 'inline-block' }}>
+                {getFriendlyKeyLabel(key)}:
+              </span>
+              <span style={{ color: 'var(--text)' }}>
+                {formatValue(key, val)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const formatDateTime = (dtStr: string | null) => {
@@ -181,7 +241,7 @@ export default function AdminMonitoringPage() {
     <div>
       <Navbar />
       <div className="page-container fade-up" style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 20px 60px' }}>
-        
+
         {/* Header */}
         <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
@@ -218,25 +278,15 @@ export default function AdminMonitoringPage() {
         <div className="card" style={{ marginBottom: 28 }}>
           <h3 style={{ fontSize: 15, marginBottom: 20, fontWeight: 600 }}>Activity Trends (Last 7 Days)</h3>
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorLogins" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--green)" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="var(--green)" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorSubmissions" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--blue)" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="var(--blue)" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--gray2)" />
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--gray5)' }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--gray5)' }} allowDecimals={false} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="Logins" stroke="var(--green)" fillOpacity={1} fill="url(#colorLogins)" strokeWidth={2} />
-              <Area type="monotone" dataKey="Submissions" stroke="var(--blue)" fillOpacity={1} fill="url(#colorSubmissions)" strokeWidth={2} />
-            </AreaChart>
+              <Bar dataKey="Logins" fill="var(--green)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Submissions" fill="var(--blue)" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
 
@@ -291,13 +341,13 @@ export default function AdminMonitoringPage() {
                 value={filterType}
                 onChange={e => setFilterType(e.target.value)}
                 className="input"
-                style={{ width: 160, padding: '7px 12px', cursor: 'pointer' }}
+                style={{ width: 180, padding: '7px 12px', cursor: 'pointer' }}
               >
                 <option value="all">All Activities</option>
-                <option value="logins">Logins Only</option>
+                <option value="login_success">Successful Logins</option>
+                <option value="login_failed">Failed Logins</option>
                 <option value="submissions">Submissions Only</option>
                 <option value="questions">Question Changes</option>
-                <option value="resets">Password Resets</option>
               </select>
             </div>
           )}
@@ -408,19 +458,8 @@ export default function AdminMonitoringPage() {
                                   <strong style={{ color: 'var(--text)' }}>User Agent:</strong> {log.user_agent || 'Unknown'}
                                 </div>
                                 {Object.keys(log.details).length > 0 && (
-                                  <div>
-                                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Meta Details:</div>
-                                    <pre style={{
-                                      background: 'var(--gray2)',
-                                      padding: 10,
-                                      borderRadius: 6,
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                      overflowX: 'auto',
-                                      color: 'var(--text)'
-                                    }}>
-                                      {JSON.stringify(log.details, null, 2)}
-                                    </pre>
+                                  <div style={{ marginTop: 4 }}>
+                                    {renderMetaDetails(log.details, log.activity_type)}
                                   </div>
                                 )}
                               </div>

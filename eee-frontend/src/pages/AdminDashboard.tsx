@@ -101,9 +101,9 @@ export default function AdminDashboard() {
         {/* Stat cards */}
         <div className="stat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
           <StatCard icon="👥" label="Registered Applicants" value={users.length}
-            color="var(--navy)" iconBg="var(--blue-lt)" onClick={() => navigate('/admin/assessments')} />
+            color="var(--navy)" iconBg="var(--blue-lt)" onClick={() => navigate('/admin-panel/assessments')} />
           <StatCard icon="📋" label="Total Questions" value={qCount}
-            color="var(--blue)" iconBg="var(--blue-lt)" onClick={() => navigate('/admin/questions')} />
+            color="var(--blue)" iconBg="var(--blue-lt)" onClick={() => navigate('/admin-panel/questions')} />
           <StatCard icon="📊" label="Total Responses" value={totalResponses}
             color="var(--green)" iconBg="var(--green-lt)" />
         </div>
@@ -146,8 +146,8 @@ export default function AdminDashboard() {
         {/* Quick actions */}
         <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
           {[
-            { icon: '📋', title: 'Manage Questions', desc: 'Create, edit, toggle and delete questions', path: '/admin/questions', color: 'var(--blue)', iconBg: 'var(--blue-lt)' },
-            { icon: '📊', title: 'View Assessments', desc: 'Browse all applicant submissions and reports', path: '/admin/assessments', color: 'var(--green)', iconBg: 'var(--green-lt)' },
+            { icon: '📋', title: 'Manage Questions', desc: 'Create, edit, toggle and delete questions', path: '/admin-panel/questions', color: 'var(--blue)', iconBg: 'var(--blue-lt)' },
+            { icon: '📊', title: 'View Assessments', desc: 'Browse all applicant submissions and reports', path: '/admin-panel/assessments', color: 'var(--green)', iconBg: 'var(--green-lt)' },
           ].map(item => (
             <div key={item.path} className="card" onClick={() => navigate(item.path)} style={{
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16,
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--gray2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: 15, fontWeight: 600 }}>Recent Applicants</h3>
             <button className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }}
-              onClick={() => navigate('/admin/assessments')}>View all →</button>
+              onClick={() => navigate('/admin-panel/assessments')}>View all →</button>
           </div>
           {users.length ? (
             <table className="table">
@@ -189,7 +189,7 @@ export default function AdminDashboard() {
                     <td style={{ color: 'var(--gray5)' }}>{u.email}</td>
                     <td style={{ color: 'var(--gray5)', fontSize: 13 }}>{new Date(u.created_at).toLocaleDateString('en-IN')}</td>
                     <td><button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }}
-                      onClick={() => navigate(`/admin/assessments`)}>View</button></td>
+                      onClick={() => navigate(`/admin-panel/assessments`)}>View</button></td>
                   </tr>
                 ))}
               </tbody>

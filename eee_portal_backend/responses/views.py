@@ -22,7 +22,7 @@ class ResponseViewSet(viewsets.ModelViewSet):
         # Admin-only actions
         if self.action in ['list', 'destroy', 'get_user_response', 'delete_user_response']:
             return [IsAdminUserRole()]
-        # Authenticated user actions (includes my_responses, single_response, bulk_response, etc.)
+        # Authenticated user actions (includes my_responses, submission, etc.)
         return [IsAuthenticatedUser()]
 
     # GET /responses/  — admin gets all responses
@@ -59,48 +59,11 @@ class ResponseViewSet(viewsets.ModelViewSet):
         count, _ = responses.delete()
         return DRFResponse({"message": f"Deleted {count} records"}, status=status.HTTP_200_OK)
 
-    # POST /responses/single-response
-    # Upsert: updates existing response if user already answered this question
-    @action(detail=False, methods=['post'], url_path='single-response')
+    # POST /responses/submission
+    # Upsert: updates existing responses when user submits the assessment
+    @action(detail=False, methods=['post'], url_path='submission')
     @method_decorator(ratelimit(key='ip', rate='50/m', block=True))
-    def single_response(self, request):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            question = serializer.validated_data['question']
-            defaults = {
-                'answer': serializer.validated_data['answer'],
-                'lab_type': serializer.validated_data.get('lab_type', ''),
-                'scope': serializer.validated_data.get('scope', []),
-            }
-            obj, created = UserResponse.objects.update_or_create(
-                user=request.user,
-                question=question,
-                defaults=defaults,
-            )
-            result_serializer = self.get_serializer(obj)
-
-            from users.models import ActivityLog
-            ActivityLog.log_activity(
-                request=request,
-                activity_type='submission_single',
-                user=request.user,
-                details={
-                    'question_id': question.id,
-                    'answer': defaults['answer'],
-                    'lab_type': defaults['lab_type'],
-                    'scope': defaults['scope']
-                }
-            )
-
-            resp_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-            return DRFResponse(result_serializer.data, status=resp_status)
-        return DRFResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # POST /responses/bulk-response
-    # Upsert: updates existing responses when user retakes the assessment
-    @action(detail=False, methods=['post'], url_path='bulk-response')
-    @method_decorator(ratelimit(key='ip', rate='50/m', block=True))
-    def bulk_response(self, request):
+    def submission(self, request):
         if not isinstance(request.data, list):
             return DRFResponse({"error": "Expected a list of items"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -124,7 +87,7 @@ class ResponseViewSet(viewsets.ModelViewSet):
             from users.models import ActivityLog
             ActivityLog.log_activity(
                 request=request,
-                activity_type='submission_bulk',
+                activity_type='submission',
                 user=request.user,
                 details={
                     'count': len(serializer.validated_data),

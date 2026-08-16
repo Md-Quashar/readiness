@@ -5,12 +5,22 @@ import type { AuthResponse, Question, Response as UserResponse, AssessmentAnswer
 // network can reach the API via the host machine's IP address.
 const BASE_URL = `${window.location.protocol}//${window.location.hostname}`;
 
-const api = axios.create({ baseURL: BASE_URL });
+const api = axios.create({ baseURL: BASE_URL, withCredentials: true });
+axios.defaults.withCredentials = true;
 
-// Attach token to every request automatically
+let inMemoryAccessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  inMemoryAccessToken = token;
+};
+
+export const getAccessToken = () => inMemoryAccessToken;
+
+// Attach in-memory access token to every request automatically
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (inMemoryAccessToken) {
+    config.headers.Authorization = `Bearer ${inMemoryAccessToken}`;
+  }
   return config;
 });
 
@@ -20,29 +30,27 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     // Check if error is 401 Unauthorized, and we haven't retried this request yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/token/refresh/') {
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (refreshToken) {
-        try {
-          // Attempt to get a new access token
-          const { data } = await axios.post<{ access: string }>(`${BASE_URL}/auth/token/refresh/`, {
-            refresh: refreshToken,
-          });
-          // Save new access token
-          localStorage.setItem('access_token', data.access);
-          // Update authorization header
-          originalRequest.headers.Authorization = `Bearer ${data.access}`;
-          // Retry the original request
-          return api(originalRequest);
-        } catch (refreshError) {
-          // If refresh token is expired/invalid, clear local storage and redirect to login
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-          return Promise.reject(refreshError);
-        }
+      try {
+        // Attempt silent refresh via HttpOnly cookie
+        const { data } = await axios.post<{ access: string }>(
+          `${BASE_URL}/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+        setAccessToken(data.access);
+        originalRequest.headers.Authorization = `Bearer ${data.access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        setAccessToken(null);
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('user');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);
@@ -56,6 +64,10 @@ export const authAPI = {
 
   login: (data: { email: string; password: string }) =>
     api.post<AuthResponse>('/auth/login/', data),
+
+  logout: () => api.post('/auth/logout/'),
+
+  refreshToken: () => api.post<{ access: string }>('/auth/token/refresh/'),
 
   getProfile: () => api.get('/auth/profile/'),
 
@@ -86,11 +98,8 @@ export const questionsAPI = {
 
 // ── Responses ─────────────────────────────────────────────────────────────
 export const responsesAPI = {
-  submitSingle: (data: AssessmentAnswer) =>
-    api.post<UserResponse>('/responses/single-response/', data),
-
-  submitBulk: (data: AssessmentAnswer[]) =>
-    api.post<UserResponse[]>('/responses/bulk-response/', data),
+  submit: (data: AssessmentAnswer[]) =>
+    api.post<UserResponse[]>('/responses/submission/', data),
 
   getUserResponses: (userId: number) =>
     api.get<UserResponse[]>(`/responses/${userId}/get-response`),

@@ -1,7 +1,5 @@
 import { useTheme } from "../context/ThemeContext";
 
-const FOOTER_LINKS = ["Terms & Conditions", "Privacy Policy", "Sitemap"];
-
 export function Footer() {
   const { t } = useTheme();
   const year = new Date().getFullYear();

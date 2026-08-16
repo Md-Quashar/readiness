@@ -33,8 +33,7 @@ Base URL: `http://localhost:8000`
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST  | `/responses/single-response/` | User | storing single response record |
-| POST | `/responses/bulk-response/` | User | storing bulk response record of same user |
+| POST  | `/responses/submission/` | User | Submit assessment responses for the user |
 | DELETE | `/responses/{id}/delete-response/` | Admin | delete records of user having id is id |
 | GET| `/responses/{id}/get-response` | Admin | get the records of a user  |
 | 

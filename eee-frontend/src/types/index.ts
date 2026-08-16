@@ -87,15 +87,16 @@ export interface ActivityLog {
   user_email: string;
   user_name: string;
   activity_type:
-    | 'login_success'
-    | 'login_failed'
-    | 'submission_single'
-    | 'submission_bulk'
-    | 'password_reset'
-    | 'question_created'
-    | 'question_updated'
-    | 'question_deleted'
-    | 'question_toggled';
+  | 'login_success'
+  | 'login_failed'
+  | 'submission'
+  | 'submission_single'
+  | 'submission_bulk'
+  | 'password_reset'
+  | 'question_created'
+  | 'question_updated'
+  | 'question_deleted'
+  | 'question_toggled';
   ip_address?: string;
   user_agent?: string;
   details: Record<string, any>;

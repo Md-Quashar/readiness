@@ -12,10 +12,10 @@ export default function Navbar() {
 
   const links = isAdmin
     ? [
-      { label: 'Dashboard', path: '/admin/dashboard' },
-      { label: 'Questions', path: '/admin/questions' },
-      { label: 'Assessments', path: '/admin/assessments' },
-      { label: 'Monitoring', path: '/admin/monitoring' },
+      { label: 'Dashboard', path: '/admin-panel/dashboard' },
+      { label: 'Questions', path: '/admin-panel/questions' },
+      { label: 'Assessments', path: '/admin-panel/assessments' },
+      { label: 'Monitoring', path: '/admin-panel/monitoring' },
     ]
     : [{ label: 'My Assessment', path: '/assessment' }];
 
@@ -29,7 +29,7 @@ export default function Navbar() {
       <div className="portal-nav-inner">
         {/* Logo */}
         <div className="portal-logo" style={{ cursor: 'pointer' }}
-          onClick={() => navigate(isAdmin ? '/admin/dashboard' : '/assessment')}>
+          onClick={() => navigate(isAdmin ? '/admin-panel/dashboard' : '/assessment')}>
           <div className="portal-logo-mark">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />

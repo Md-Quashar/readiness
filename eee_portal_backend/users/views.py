@@ -10,14 +10,30 @@ from .models import User, ActivityLog
 from .serializers import UserSerializer, UserPublicSerializer, ActivityLogSerializer
 
 
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+
 def _token_pair(user):
     """Return a fresh access + refresh token dict for the given user."""
     refresh = RefreshToken.for_user(user)
-   ## refresh.access_token.set_exp(lifetime=timedelta(hours=4))
     return {
         'refresh': str(refresh),
         'access':  str(refresh.access_token),
     }
+
+
+def set_refresh_cookie(response, refresh_token_str):
+    """Attach HttpOnly cookie for refresh token."""
+    response.set_cookie(
+        key='refresh_token',
+        value=refresh_token_str,
+        httponly=True,
+        samesite='Lax',
+        secure=False,  # Set to True in HTTPS production
+        path='/',
+    )
+    return response
 
 
 # ─── POST /api/auth/register/ ────────────────────────────────────────────
@@ -33,20 +49,21 @@ class RegisterView(APIView):
     """
     permission_classes = [AllowAny]
 
-  #  @ratelimit(key='ip', rate='5/m', block=True)  # Limit to 5 registrations per minute per IP
     @method_decorator(ratelimit(key='ip', rate='20/m', block=True))
     def post(self, request):
         print("Registration request data:", request.data)  # Debug log
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response(
+            tokens = _token_pair(user)
+            res = Response(
                 {
                     'user':   UserPublicSerializer(user).data,
-                    'tokens': _token_pair(user),
+                    'tokens': tokens,
                 },
                 status=status.HTTP_201_CREATED,
             )
+            return set_refresh_cookie(res, tokens['refresh'])
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -113,13 +130,44 @@ class LoginView(APIView):
             user=user
         )
 
-        return Response(
+        tokens = _token_pair(user)
+        res = Response(
             {
                 'user':   UserPublicSerializer(user).data,
-                'tokens': _token_pair(user),
+                'tokens': tokens,
             },
             status=status.HTTP_200_OK,
         )
+        return set_refresh_cookie(res, tokens['refresh'])
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()
+        if 'refresh' not in data or not data['refresh']:
+            cookie_refresh = request.COOKIES.get('refresh_token')
+            if cookie_refresh:
+                data['refresh'] = cookie_refresh
+        
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+
+        res = Response(serializer.validated_data, status=status.HTTP_200_OK)
+        if 'refresh' in serializer.validated_data:
+            set_refresh_cookie(res, serializer.validated_data['refresh'])
+        return res
+
+
+class LogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        res = Response({'message': 'Logged out successfully'}, status=status.HTTP_200_OK)
+        res.delete_cookie('refresh_token', path='/')
+        return res
 
 
 # ─── GET /api/auth/profile/ ──────────────────────────────────────────────

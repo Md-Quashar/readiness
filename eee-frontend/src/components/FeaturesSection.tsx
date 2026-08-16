@@ -7,7 +7,7 @@ import { SectionBadge } from "../components/SectionBadge";
 export function FeaturesSection() {
   const { t } = useTheme();
   const { ref: headerRef, inView: headerIn } = useInView();
-  const { ref: gridRef,   inView: gridIn   } = useInView();
+  const { ref: gridRef, inView: gridIn } = useInView();
 
   return (
     <section
@@ -22,7 +22,7 @@ export function FeaturesSection() {
             className="eee-display-font"
             style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)", fontWeight: 400, color: t.text, marginBottom: 12, letterSpacing: "-0.02em" }}
           >
-            Portal Features
+            Readiness Evaluation Portal  Features
           </h2>
           <p style={{ color: t.textSub, fontSize: 15, maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
             Comprehensive tools to evaluate and strengthen your laboratory's readiness for EEE notification.
@@ -46,7 +46,7 @@ export function FeaturesSection() {
                   border: `1px solid ${t.featureCardBorder}`,
                 }}
                 onMouseOver={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = `${t.accent}50`; }}
-                onMouseOut={(e)  => { (e.currentTarget as HTMLDivElement).style.borderColor = t.featureCardBorder; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = t.featureCardBorder; }}
               >
                 <div
                   style={{

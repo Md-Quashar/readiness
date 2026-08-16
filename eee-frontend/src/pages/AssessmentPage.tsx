@@ -6,7 +6,7 @@ import type { Question, AssessmentAnswer } from '../types';
 import Navbar from '../components/Navbar';
 
 const LAB_TYPES = [
-  'Central Government', 'State Government', 'Union Territory'
+  'Central Government', 'State Government', 'Union Territory',
 ]
 
 // ── Checkbox Dropdown Component ──────────────────────────────────────────────
@@ -254,7 +254,7 @@ function CheckboxDropdown({
   );
 }
 
-// ── LocalStorage persistence helpers ─────────────────────────────────────────
+// ── SessionStorage persistence helpers ─────────────────────────────────────────
 const STORAGE_KEY_PREFIX = 'eee_assessment_';
 
 function getStorageKey(userId: number | undefined) {
@@ -270,7 +270,7 @@ interface PersistedState {
 
 function loadPersistedState(userId: number | undefined): Partial<PersistedState> {
   try {
-    const raw = localStorage.getItem(getStorageKey(userId));
+    const raw = sessionStorage.getItem(getStorageKey(userId));
     if (!raw) return {};
     return JSON.parse(raw) as Partial<PersistedState>;
   } catch {
@@ -280,13 +280,13 @@ function loadPersistedState(userId: number | undefined): Partial<PersistedState>
 
 function savePersistedState(userId: number | undefined, state: PersistedState) {
   try {
-    localStorage.setItem(getStorageKey(userId), JSON.stringify(state));
+    sessionStorage.setItem(getStorageKey(userId), JSON.stringify(state));
   } catch { /* storage full — silently ignore */ }
 }
 
 function clearPersistedState(userId: number | undefined) {
   try {
-    localStorage.removeItem(getStorageKey(userId));
+    sessionStorage.removeItem(getStorageKey(userId));
   } catch { /* ignore */ }
 }
 
@@ -307,181 +307,84 @@ export default function AssessmentPage() {
   const { user } = useAuth();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Load any previously saved state for this user (on initial mount)
+  const saved = useRef(loadPersistedState(user?.id));
   const hasRestored = useRef(false);
 
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<number, 'yes' | 'no'>>({});
-  const [labType, setLabType] = useState('');
-  const [scope, setScope] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<number, 'yes' | 'no'>>(saved.current.answers ?? {});
+  const [labType, setLabType] = useState(saved.current.labType ?? '');
+  const [scope, setScope] = useState<string[]>(saved.current.scope ?? []);
   const [scopes, setScopes] = useState<string[]>([]);
   const [sections, setSections] = useState<string[]>([]);
-  const [activeIdx, setActiveIdx] = useState(0);
+  const [activeIdx, setActiveIdx] = useState(saved.current.activeIdx ?? 0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [hasPreviousSubmission, setHasPreviousSubmission] = useState(false);
 
-  // Restore/Confirmation modal state
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [pendingRecord, setPendingRecord] = useState<{
-    answers: Record<number, 'yes' | 'no'>;
-    labType: string;
-    scope: string[];
-    activeIdx?: number;
-    isFromServer: boolean;
-  } | null>(null);
-
   // When user becomes available (e.g. after login), restore their saved state
-  // First try localStorage (in-progress work), then fall back to server (previous submission)
+  // First try sessionStorage (in-progress work), then fall back to server (previous submission)
   useEffect(() => {
     if (user?.id && !hasRestored.current) {
       hasRestored.current = true;
       const restored = loadPersistedState(user.id);
       const hasLocalAnswers = restored.answers && Object.keys(restored.answers).length > 0;
 
-      const sessionKey = `eee_assessment_prompted_${user.id}`;
-      const alreadyPrompted = sessionStorage.getItem(sessionKey) === 'true';
-
-      if (alreadyPrompted) {
-        // Already prompted this session — perform standard auto-restore silently
-        setIsInitialized(true);
-        if (hasLocalAnswers) {
-          setAnswers(restored.answers!);
-          if (restored.labType) setLabType(restored.labType);
-          if (restored.scope && restored.scope.length > 0) setScope(restored.scope);
-          if (restored.activeIdx !== undefined) setActiveIdx(restored.activeIdx);
-        } else {
-          responsesAPI.getMyResponses()
-            .then(res => {
-              const data: any = res.data;
-              const serverResponses = Array.isArray(data) ? data : [];
-              if (serverResponses.length > 0) {
-                const restoredAnswers: Record<number, 'yes' | 'no'> = {};
-                serverResponses.forEach((r: any) => {
-                  restoredAnswers[r.question] = r.answer;
-                });
-                setAnswers(restoredAnswers);
-
-                const firstResponse = serverResponses[0];
-                if (firstResponse.lab_type) setLabType(firstResponse.lab_type);
-                if (firstResponse.scope) {
-                  let scopeList: string[];
-                  if (Array.isArray(firstResponse.scope)) {
-                    scopeList = firstResponse.scope.filter((s: string) => s.length > 0);
-                  } else {
-                    scopeList = firstResponse.scope
-                      .split(',')
-                      .map((s: string) => s.trim())
-                      .filter((s: string) => s.length > 0);
-                  }
-                  if (scopeList.length > 0) setScope(scopeList);
-                }
-                setHasPreviousSubmission(true);
-              }
-            })
-            .catch(() => { });
-        }
+      if (hasLocalAnswers) {
+        // Restore from sessionStorage (in-progress, unsaved work)
+        setAnswers(restored.answers!);
+        if (restored.labType) setLabType(restored.labType);
+        if (restored.scope && restored.scope.length > 0) setScope(restored.scope);
+        if (restored.activeIdx !== undefined) setActiveIdx(restored.activeIdx);
       } else {
-        // Not prompted yet — check if there is a record to restore
-        if (hasLocalAnswers) {
-          setPendingRecord({
-            answers: restored.answers!,
-            labType: restored.labType ?? '',
-            scope: restored.scope ?? [],
-            activeIdx: restored.activeIdx ?? 0,
-            isFromServer: false
-          });
-          setShowRestoreModal(true);
-        } else {
-          // Check server
-          responsesAPI.getMyResponses()
-            .then(res => {
-              const data: any = res.data;
-              const serverResponses = Array.isArray(data) ? data : [];
-              if (serverResponses.length > 0) {
-                const restoredAnswers: Record<number, 'yes' | 'no'> = {};
-                serverResponses.forEach((r: any) => {
-                  restoredAnswers[r.question] = r.answer;
-                });
+        // No local progress — try fetching previously submitted responses from the server
+        responsesAPI.getMyResponses()
+          .then(res => {
+            const data: any = res.data;
+            const serverResponses = Array.isArray(data) ? data : [];
+            if (serverResponses.length > 0) {
+              // Auto-fill answers from server
+              const restoredAnswers: Record<number, 'yes' | 'no'> = {};
+              serverResponses.forEach((r: any) => {
+                restoredAnswers[r.question] = r.answer;
+              });
+              setAnswers(restoredAnswers);
 
-                let finalLabType = '';
-                let finalScope: string[] = [];
-                const firstResponse = serverResponses[0];
-                if (firstResponse.lab_type) finalLabType = firstResponse.lab_type;
-                if (firstResponse.scope) {
-                  if (Array.isArray(firstResponse.scope)) {
-                    finalScope = firstResponse.scope.filter((s: string) => s.length > 0);
-                  } else {
-                    finalScope = firstResponse.scope
-                      .split(',')
-                      .map((s: string) => s.trim())
-                      .filter((s: string) => s.length > 0);
-                  }
+              // Restore lab_type and scope from the first response (they are the same across all)
+              const firstResponse = serverResponses[0];
+              if (firstResponse.lab_type) setLabType(firstResponse.lab_type);
+              if (firstResponse.scope) {
+                // Handle scope as either an array or a comma-separated string
+                let scopeList: string[];
+                if (Array.isArray(firstResponse.scope)) {
+                  scopeList = firstResponse.scope.filter((s: string) => s.length > 0);
+                } else {
+                  scopeList = firstResponse.scope
+                    .split(',')
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s.length > 0);
                 }
-
-                setPendingRecord({
-                  answers: restoredAnswers,
-                  labType: finalLabType,
-                  scope: finalScope,
-                  activeIdx: 0,
-                  isFromServer: true
-                });
-                setShowRestoreModal(true);
-              } else {
-                // No records found anywhere
-                setIsInitialized(true);
+                if (scopeList.length > 0) setScope(scopeList);
               }
-            })
-            .catch(() => {
-              // Error or no records
-              setIsInitialized(true);
-            });
-        }
+
+              setHasPreviousSubmission(true);
+            }
+          })
+          .catch(() => {
+            // Silently ignore — user may not have submitted before
+          });
       }
     }
   }, [user?.id]);
 
-  // Persist answers, labType, scope, activeIdx to localStorage on every change
-  // Only save when we have a real user ID and assessment state has been initialized/resolved to avoid clobbering data
+  // Persist answers, labType, scope, activeIdx to sessionStorage on every change
+  // Only save when we have a real user ID to avoid clobbering data
   useEffect(() => {
-    if (!user?.id || !isInitialized) return;
+    if (!user?.id) return;
     savePersistedState(user.id, { answers, labType, scope, activeIdx });
-  }, [answers, labType, scope, activeIdx, user?.id, isInitialized]);
-
-  const handleRestore = () => {
-    if (pendingRecord) {
-      setAnswers(pendingRecord.answers);
-      setLabType(pendingRecord.labType);
-      setScope(pendingRecord.scope);
-      if (pendingRecord.activeIdx !== undefined) {
-        setActiveIdx(pendingRecord.activeIdx);
-      }
-      if (pendingRecord.isFromServer) {
-        setHasPreviousSubmission(true);
-      }
-    }
-    if (user?.id) {
-      sessionStorage.setItem(`eee_assessment_prompted_${user.id}`, 'true');
-    }
-    setIsInitialized(true);
-    setShowRestoreModal(false);
-  };
-
-  const handleStartFresh = () => {
-    clearPersistedState(user?.id);
-    setAnswers({});
-    setLabType('');
-    setScope([]);
-    setActiveIdx(0);
-    setHasPreviousSubmission(false);
-    if (user?.id) {
-      sessionStorage.setItem(`eee_assessment_prompted_${user.id}`, 'true');
-    }
-    setIsInitialized(true);
-    setShowRestoreModal(false);
-  };
+  }, [answers, labType, scope, activeIdx, user?.id]);
 
   useEffect(() => {
     questionsAPI.getActive()
@@ -516,7 +419,7 @@ export default function AssessmentPage() {
 
   const currentSec = sections[activeIdx];
   const currentQs = sectionQs(currentSec);
-  const currentDone = sectionDone(currentSec);
+  const currentDone = true; //sectionDone(currentSec);
   const isLastSection = activeIdx === sections.length - 1;
   const allDone = sections.length > 0 && completedCount === sections.length;
 
@@ -538,7 +441,7 @@ export default function AssessmentPage() {
       const payload: AssessmentAnswer[] = Object.entries(answers).map(([qId, answer]) => ({
         question: Number(qId), answer, lab_type: labType, scope: scope.join(', '),
       }));
-      await responsesAPI.submitBulk(payload);
+      await responsesAPI.submit(payload);
       clearPersistedState(user?.id);
       setHasPreviousSubmission(false);
       setSubmitted(true);
@@ -654,50 +557,6 @@ export default function AssessmentPage() {
     <div>
       <Navbar />
 
-      {showRestoreModal && (
-        <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: 480, textAlign: 'center' }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: '50%', background: 'var(--blue-lt)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
-            }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 4v6h6" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-            </div>
-            <h3 style={{ fontSize: 20, marginBottom: 12, fontWeight: 700 }}>Restore Previous Assessment?</h3>
-            <p style={{ color: 'var(--gray5)', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
-              We found {pendingRecord?.isFromServer ? 'a previously submitted' : 'an in-progress'} assessment record for your account.
-              Would you like to restore your previous answers or start with a fresh assessment?
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button
-                className="btn btn-primary"
-                onClick={handleRestore}
-                style={{ justifyContent: 'center', padding: '12px 20px', fontSize: 14, fontWeight: 600 }}
-              >
-                Restore Previous Records
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={handleStartFresh}
-                style={{
-                  justifyContent: 'center',
-                  padding: '12px 20px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: 'var(--red)',
-                  border: '1px solid rgba(220,38,38,.3)',
-                }}
-              >
-                Start Fresh Assessment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Top progress strip */}
       <div style={{ height: 3, background: 'var(--gray2)' }}>
         <div className="progress-fill" style={{ width: `${overallPct}%`, background: overallPct === 100 ? 'var(--green)' : 'var(--blue)' }} />
@@ -725,7 +584,7 @@ export default function AssessmentPage() {
             </div>
             <div className="lab-info-divider" style={{ background: 'var(--gray2)', height: '100%' }} />
             <div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 5 }}>Lab Type<span style={{ color: 'var(--red)', marginLeft: 3 }}>*</span></p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 5 }}>Laboratory Type<span style={{ color: 'var(--red)', marginLeft: 3 }}>*</span></p>
               <select className="input" style={{ fontSize: 13, padding: '6px 10px' }}
                 value={labType} onChange={e => setLabType(e.target.value)} required>
                 <option value="">Select type…</option>
@@ -1028,7 +887,7 @@ export default function AssessmentPage() {
                         fontFamily: 'var(--font)', transition: 'background .2s',
                         display: 'flex', alignItems: 'center', gap: 6,
                       }}>
-                      Save & Next →
+                      Next →
                     </button>
                   ) : (
                     <button className="btn btn-success btn-lg" onClick={handleSubmit}

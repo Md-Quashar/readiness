@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User } from '../types';
+import { authAPI, setAccessToken } from '../api';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (user: User, access: string, refresh: string) => void;
-  logout: () => void;
+  login: (user: User, access: string, refresh?: string) => void;
+  logout: () => Promise<void>;
   isAdmin: boolean;
   isLoading: boolean;
 }
@@ -14,39 +15,78 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Restore session from localStorage on mount
-    const savedToken = localStorage.getItem('access_token');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
-  }, []);
-
-  const login = (userData: User, access: string, refresh: string) => {
-    localStorage.setItem('access_token', access);
-    localStorage.setItem('refresh_token', refresh);
-    localStorage.setItem('user', JSON.stringify(userData));
-    sessionStorage.removeItem(`eee_assessment_prompted_${userData.id}`);
-    setUser(userData);
-    setToken(access);
+  const updateToken = (newToken: string | null) => {
+    setTokenState(newToken);
+    setAccessToken(newToken);
   };
 
-  const logout = () => {
-    if (user?.id) {
-      sessionStorage.removeItem(`eee_assessment_prompted_${user.id}`);
-    }
-    // Only remove auth-related keys; preserve assessment responses & theme
+  useEffect(() => {
+    // Perform silent token refresh on mount using HttpOnly cookie
+    const initAuth = async () => {
+      try {
+        const refreshRes = await authAPI.refreshToken();
+        const access = refreshRes.data.access;
+        updateToken(access);
+
+        const profileRes = await authAPI.getProfile();
+        setUser(profileRes.data);
+      } catch {
+        // Silent refresh failed (no active cookie/session)
+        updateToken(null);
+        setUser(null);
+      } finally {
+        // Clean legacy storage keys if present
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('user');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  const login = (userData: User, access: string, _refresh?: string) => {
+    updateToken(access);
+    setUser(userData);
+
+    sessionStorage.removeItem(`eee_assessment_prompted_${userData.id}`);
+
+    // Clean legacy storage keys
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('user');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
-    setUser(null);
-    setToken(null);
+  };
+
+  const logout = async () => {
+    if (user?.id) {
+      sessionStorage.removeItem(`eee_assessment_prompted_${user.id}`);
+    }
+
+    try {
+      await authAPI.logout();
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      updateToken(null);
+      setUser(null);
+
+      sessionStorage.removeItem('access_token');
+      sessionStorage.removeItem('refresh_token');
+      sessionStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+    }
   };
 
   return (

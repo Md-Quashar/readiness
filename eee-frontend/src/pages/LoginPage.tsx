@@ -21,9 +21,9 @@ export default function LoginPage() {
       const res = await authAPI.login(form);
       const { user, tokens } = res.data;
       login(user, tokens.access, tokens.refresh);
-      navigate(user.role === 'admin' ? '/admin/dashboard' : '/assessment');
+      navigate(user.role === 'admin' ? '/admin-panel/dashboard' : '/assessment');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid email or password.');
+      setError(err.response?.data?.error || 'Invalid User Id or password.');
     } finally { setLoading(false); }
   };
 

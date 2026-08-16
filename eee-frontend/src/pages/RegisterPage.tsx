@@ -108,6 +108,7 @@ export default function RegisterPage() {
               }}
               pattern="[A-Za-z\s.'-]+"
               title="Name should only contain letters, spaces, hyphens, and dots"
+              maxLength={30}
               required />
           </div>
 

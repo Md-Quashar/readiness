@@ -61,8 +61,7 @@ class ActivityLog(models.Model):
     ACTIVITY_TYPES = [
         ('login_success', 'Login Success'),
         ('login_failed', 'Login Failed'),
-        ('submission_single', 'Single Response Submission'),
-        ('submission_bulk', 'Bulk Responses Submission'),
+        ('submission', 'Submission'),
         ('password_reset', 'Password Reset'),
         ('question_created', 'Question Created'),
         ('question_updated', 'Question Updated'),
@@ -128,6 +127,17 @@ class ActivityLog(models.Model):
                 log_user = None
                 log_email = email or ''
                 log_name = name or ''
+                if log_email:
+                    try:
+                        found_user = User.objects.filter(email__iexact=log_email).first()
+                        if found_user:
+                            log_user = found_user
+                            log_name = found_user.name
+                        else:
+                            if not log_name:
+                                log_name = log_email
+                    except Exception:
+                        pass
                 
             return cls.objects.create(
                 user=log_user,

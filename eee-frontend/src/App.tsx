@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AssessmentPage from './pages/AssessmentPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminQuestionsPage from './pages/AdminQuestionsPage';
@@ -29,7 +28,7 @@ function RootRedirect() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (!user) return <Navigate to="/home" replace />;
-  return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/assessment'} replace />;
+  return <Navigate to={user.role === 'admin' ? '/admin-panel/dashboard' : '/assessment'} replace />;
 }
 function AppRoutes() {
   return (
@@ -38,12 +37,19 @@ function AppRoutes() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      {/* <Route path="/forgot-password" element={<ForgotPasswordPage />} /> */}
       <Route path="/assessment" element={<RequireAuth><AssessmentPage /></RequireAuth>} />
-      <Route path="/admin/dashboard" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-      <Route path="/admin/questions" element={<RequireAdmin><AdminQuestionsPage /></RequireAdmin>} />
-      <Route path="/admin/assessments" element={<RequireAdmin><AdminAssessmentsPage /></RequireAdmin>} />
-      <Route path="/admin/monitoring" element={<RequireAdmin><AdminMonitoringPage /></RequireAdmin>} />
+      <Route path="/admin-panel/dashboard" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+      <Route path="/admin-panel/questions" element={<RequireAdmin><AdminQuestionsPage /></RequireAdmin>} />
+      <Route path="/admin-panel/assessments" element={<RequireAdmin><AdminAssessmentsPage /></RequireAdmin>} />
+      <Route path="/admin-panel/monitoring" element={<RequireAdmin><AdminMonitoringPage /></RequireAdmin>} />
+
+      {/* Legacy route redirects */}
+      <Route path="/admin/dashboard" element={<Navigate to="/admin-panel/dashboard" replace />} />
+      <Route path="/admin/questions" element={<Navigate to="/admin-panel/questions" replace />} />
+      <Route path="/admin/assessments" element={<Navigate to="/admin-panel/assessments" replace />} />
+      <Route path="/admin/monitoring" element={<Navigate to="/admin-panel/monitoring" replace />} />
+
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
